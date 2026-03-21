@@ -116,6 +116,9 @@
         .weekly-fill { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 6px 6px 0 0; transition: height 0.25s ease; }
         .weekly-target { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.45); pointer-events: none; }
         #scheduleDnD input[type="time"] { color-scheme: dark; min-width: 84px; }
+        .day-pill { padding: 4px 8px; border-radius: 999px; font-size: 10px; font-weight: 600; }
+        .profile-stat { background: rgba(30,30,42,0.8); border: 1px solid rgba(255,255,255,0.05); }
+        .insight-card { border: 1px solid rgba(255,255,255,0.04); }
         .quick-btn { min-height: 44px; min-width: 44px; }
         .subject-tag { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: 600; }
         .nav-item { transition: all 0.2s; }
@@ -141,6 +144,9 @@
             .timetable-row { grid-template-columns: 38px repeat(7, minmax(74px, 1fr)); }
             .timetable-cell { min-height: 50px; padding: 3px; }
             #subjGrid { grid-template-columns: 1fr; }
+            #dayActionRow { flex-wrap: wrap; }
+            #dayActionRow .btn { flex: 1 1 30%; }
+            #modalProfile .grid-cols-3 { gap: 0.4rem; }
             #quickStatsBar .max-w-lg { flex-wrap: wrap; gap: 0.35rem; }
             #quickStatsBar .max-w-lg > div { width: 100%; justify-content: space-between; }
             #subjectsTable { overflow-x: auto; }
@@ -396,6 +402,14 @@
 
                 <div id="dayNote" class="hidden mb-2 p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-[10px] text-amber-200"></div>
 
+                <div id="daySummary" class="hidden mb-2 flex flex-wrap gap-1.5"></div>
+
+                <div id="dayActionRow" class="hidden mb-2 flex items-center gap-1.5">
+                    <button onclick="setAllStatus('P')" class="px-2.5 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 text-[10px] btn">All Present</button>
+                    <button onclick="setAllStatus('A')" class="px-2.5 py-1.5 rounded-lg bg-red-500/20 text-red-300 text-[10px] btn">All Absent</button>
+                    <button onclick="setAllStatus('C')" class="px-2.5 py-1.5 rounded-lg bg-gray-500/20 text-gray-300 text-[10px] btn">All Cancelled</button>
+                </div>
+
                 <div id="dayList" class="space-y-1.5"></div>
 
                 <div id="dayEmpty" class="hidden text-center py-6">
@@ -535,21 +549,29 @@
                 </div>
                 <div id="insightsBox" class="hidden space-y-2">
                     <div class="grid grid-cols-2 gap-2">
-                        <div class="bg-dark-700 rounded-xl p-2.5">
+                        <div class="insight-card bg-dark-700 rounded-xl p-2.5">
                             <p class="text-[9px] text-gray-500 mb-0.5">Perfect Days</p>
                             <p class="text-sm font-bold text-emerald-400" id="iPerfect">-</p>
                         </div>
-                        <div class="bg-dark-700 rounded-xl p-2.5">
+                        <div class="insight-card bg-dark-700 rounded-xl p-2.5">
                             <p class="text-[9px] text-gray-500 mb-0.5">Working Days</p>
                             <p class="text-sm font-bold text-blue-400" id="iWorkDays">-</p>
                         </div>
-                        <div class="bg-dark-700 rounded-xl p-2.5">
+                        <div class="insight-card bg-dark-700 rounded-xl p-2.5">
                             <p class="text-[9px] text-gray-500 mb-0.5">Classes/Day Avg</p>
                             <p class="text-sm font-bold text-violet-400" id="iAvgDay">-</p>
                         </div>
-                        <div class="bg-dark-700 rounded-xl p-2.5">
+                        <div class="insight-card bg-dark-700 rounded-xl p-2.5">
                             <p class="text-[9px] text-gray-500 mb-0.5">Best Day</p>
                             <p class="text-sm font-bold text-amber-400" id="iBestDay">-</p>
+                        </div>
+                        <div class="insight-card bg-dark-700 rounded-xl p-2.5">
+                            <p class="text-[9px] text-gray-500 mb-0.5">Miss Rate</p>
+                            <p class="text-sm font-bold text-red-300" id="iMissRate">-</p>
+                        </div>
+                        <div class="insight-card bg-dark-700 rounded-xl p-2.5">
+                            <p class="text-[9px] text-gray-500 mb-0.5">Momentum</p>
+                            <p class="text-sm font-bold text-cyan-300" id="iMomentum">-</p>
                         </div>
                     </div>
                     <div class="bg-dark-700 rounded-xl p-2.5">
@@ -696,17 +718,31 @@
             </div>
             
             <div class="grid grid-cols-3 gap-2 mb-4">
-                <div class="bg-dark-700 rounded-xl p-3 text-center">
+                <div class="profile-stat rounded-xl p-3 text-center">
                     <p class="text-lg font-bold text-blue-400" id="pDays">0</p>
                     <p class="text-[9px] text-gray-500">Days Logged</p>
                 </div>
-                <div class="bg-dark-700 rounded-xl p-3 text-center">
+                <div class="profile-stat rounded-xl p-3 text-center">
                     <p class="text-lg font-bold text-emerald-400" id="pClasses">0</p>
                     <p class="text-[9px] text-gray-500">Classes</p>
                 </div>
-                <div class="bg-dark-700 rounded-xl p-3 text-center">
+                <div class="profile-stat rounded-xl p-3 text-center">
                     <p class="text-lg font-bold text-violet-400" id="pPct">0%</p>
                     <p class="text-[9px] text-gray-500">Overall</p>
+                </div>
+            </div>
+
+            <div class="bg-dark-700 rounded-xl p-3 mb-4">
+                <div class="flex items-center justify-between text-[10px] mb-1">
+                    <span class="text-gray-500">Target Progress</span>
+                    <span class="font-medium text-blue-300" id="pTarget">-</span>
+                </div>
+                <div class="progress-bar">
+                    <div id="pTargetBar" class="progress-bar-fill bg-gradient-to-r from-emerald-500 to-blue-500"></div>
+                </div>
+                <div class="flex items-center justify-between mt-1 text-[9px] text-gray-500">
+                    <span id="pCritical">-</span>
+                    <span id="pBestDay">-</span>
                 </div>
             </div>
 
@@ -770,7 +806,8 @@
                 <h3 class="text-sm font-semibold">🏆 Achievements</h3>
                 <button onclick="closeAchievements()" class="p-1.5 hover:bg-dark-600 rounded-lg btn"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
             </div>
-            <div id="achievementsList" class="grid grid-cols-3 gap-2"></div>
+            <div id="achSummary" class="text-[10px] text-gray-400 mb-2"></div>
+            <div id="achievementsList" class="grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
         </div>
     </div>
 
@@ -1204,15 +1241,30 @@
             { id: 'first', name: 'First Day', icon: '🎓', desc: 'Log your first day', check: d => Object.keys(d.logs).length >= 1 },
             { id: 'week1', name: 'Week Warrior', icon: '📅', desc: 'Log 7 days', check: d => Object.keys(d.logs).length >= 7 },
             { id: 'month1', name: 'Month Master', icon: '🗓️', desc: 'Log 30 days', check: d => Object.keys(d.logs).length >= 30 },
+            { id: 'month3', name: 'Quarter Champ', icon: '🏅', desc: 'Log 90 days', check: d => Object.keys(d.logs).length >= 90 },
             { id: 'streak5', name: 'Hot Streak', icon: '🔥', desc: '5 day streak', check: d => (d.bestStreak || 0) >= 5 },
             { id: 'streak10', name: 'On Fire', icon: '🔥', desc: '10 day streak', check: d => (d.bestStreak || 0) >= 10 },
+            { id: 'streak20', name: 'Unstoppable', icon: '🚀', desc: '20 day streak', check: d => (d.bestStreak || 0) >= 20 },
             { id: 'perfect75', name: 'Safe Zone', icon: '🛡️', desc: 'All subjects above 75%', check: d => SUBJECTS.every(s => !d.att[s]?.h || (d.att[s].a / d.att[s].h * 100) >= 75) },
             { id: 'perfect90', name: 'Overachiever', icon: '⭐', desc: 'All subjects above 90%', check: d => SUBJECTS.every(s => !d.att[s]?.h || (d.att[s].a / d.att[s].h * 100) >= 90) },
+            { id: 'target80', name: 'Eighty Club', icon: '🥇', desc: 'Overall above 80%', check: d => {
+                let a = 0, h = 0;
+                SUBJECTS.forEach(s => { a += d.att[s]?.a || 0; h += d.att[s]?.h || 0; });
+                return h > 0 && (a / h * 100) >= 80;
+            } },
             { id: 'classes50', name: 'Half Century', icon: '🎯', desc: 'Attend 50 classes', check: d => Object.values(d.att).reduce((s, v) => s + (v.a || 0), 0) >= 50 },
             { id: 'classes100', name: 'Century', icon: '💯', desc: 'Attend 100 classes', check: d => Object.values(d.att).reduce((s, v) => s + (v.a || 0), 0) >= 100 },
+            { id: 'classes200', name: 'Double Century', icon: '🏆', desc: 'Attend 200 classes', check: d => Object.values(d.att).reduce((s, v) => s + (v.a || 0), 0) >= 200 },
             { id: 'explorer', name: 'Explorer', icon: '🧭', desc: 'Use all features', check: d => d.explored },
             { id: 'backup', name: 'Safe Keeper', icon: '💾', desc: 'Create a backup', check: d => d.backedUp },
             { id: 'notes5', name: 'Note Taker', icon: '📝', desc: 'Add 5 notes', check: d => Object.keys(d.notes || {}).length >= 5 },
+            { id: 'planner', name: 'Planner', icon: '🧠', desc: 'Set semester start and end dates', check: d => !!d.semStart && !!d.semEnd },
+            { id: 'scheduler', name: 'Time Architect', icon: '🕒', desc: 'Set at least 10 slot times', check: d => {
+                const times = d.scheduleTimes || {};
+                let count = 0;
+                for (let i = 0; i < 7; i++) count += (times[i] || []).filter(Boolean).length;
+                return count >= 10;
+            } },
         ];
 
         // =====================================================================
@@ -1883,6 +1935,13 @@
             const monthPct = monthH ? Math.round(monthA / monthH * 100) : 100;
             document.getElementById('calSubtitle').textContent = monthH ? `${monthPct}% • ${monthA}/${monthH} classes` : 'No data';
             let holidayCount = 0, examCount = 0, halfdayCount = 0, exchangeCount = 0;
+            Object.entries(data.cal || {}).forEach(([id, ev]) => {
+                if (!id.startsWith(`${y}-${String(m + 1).padStart(2, '0')}`)) return;
+                if (ev?.type === 'holiday') holidayCount++;
+                else if (ev?.type === 'exam') examCount++;
+                else if (ev?.type === 'halfday') halfdayCount++;
+                else if (ev?.type === 'exchange') exchangeCount++;
+            });
             
             const first = new Date(y, m, 1).getDay(), days = new Date(y, m + 1, 0).getDate(), tid = today();
             let h = ''; 
@@ -1903,10 +1962,10 @@
                     if (hasA && hasP) c += ' cal-partial';
                     else c += ' cal-logged';
                 }
-                else if (ev?.type === 'holiday') { c += ' cal-holiday'; holidayCount++; }
-                else if (ev?.type === 'exam') { c += ' cal-exam'; examCount++; }
-                else if (ev?.type === 'halfday') { c += ' cal-halfday'; halfdayCount++; }
-                else if (ev?.type === 'exchange') { c += ' cal-exchange'; exchangeCount++; }
+                else if (ev?.type === 'holiday') c += ' cal-holiday';
+                else if (ev?.type === 'exam') c += ' cal-exam';
+                else if (ev?.type === 'halfday') c += ' cal-halfday';
+                else if (ev?.type === 'exchange') c += ' cal-exchange';
                 else if (ev) c += ' cal-event';
                 else if (isSunday) c += ' cal-sunday';
                 if (hasNote) c += ' cal-note';
@@ -2227,6 +2286,42 @@
                 ? `<span class="badge ${weekPct >= targetPct ? 'badge-success' : 'badge-danger'}">${weekPct}%</span> ${weekP}/${weekTotal} classes`
                 : '<span class="text-gray-500">No classes this week</span>';
 
+            // Miss rate
+            let totalA = 0, totalH = 0;
+            SUBJECTS.forEach(s => { totalA += data.att[s]?.a || 0; totalH += data.att[s]?.h || 0; });
+            const missRate = totalH ? Math.round(((totalH - totalA) / totalH) * 100) : 0;
+            document.getElementById('iMissRate').textContent = `${missRate}%`;
+
+            // Momentum: last 7 days vs previous 7 days
+            const bucketPct = (fromOffset, toOffset) => {
+                let a = 0, h = 0;
+                for (let i = fromOffset; i <= toOffset; i++) {
+                    const d = new Date();
+                    d.setDate(d.getDate() - i);
+                    const id = toId(d);
+                    const log = data.logs[id];
+                    (log?.classes || []).forEach(c => {
+                        if (c.status === 'P') { a++; h++; }
+                        else if (c.status === 'A') h++;
+                    });
+                }
+                return h ? (a / h * 100) : null;
+            };
+            const recent = bucketPct(0, 6);
+            const previous = bucketPct(7, 13);
+            const momentumEl = document.getElementById('iMomentum');
+            if (recent === null && previous === null) {
+                momentumEl.textContent = 'No data';
+                momentumEl.className = 'text-sm font-bold text-gray-400';
+            } else if (previous === null) {
+                momentumEl.textContent = `${Math.round(recent)}% (new)`;
+                momentumEl.className = 'text-sm font-bold text-blue-300';
+            } else {
+                const delta = Math.round(recent - previous);
+                momentumEl.textContent = `${delta >= 0 ? '+' : ''}${delta}%`;
+                momentumEl.className = `text-sm font-bold ${delta > 0 ? 'text-emerald-300' : delta < 0 ? 'text-red-300' : 'text-gray-300'}`;
+            }
+
             // By day
             document.getElementById('iByDay').innerHTML = DAYS.filter(d => byDay[d].t > 0).map(d => {
                 const pct = Math.round(byDay[d].p / byDay[d].t * 100);
@@ -2252,10 +2347,14 @@
 
         function openAchievements() {
             const list = document.getElementById('achievementsList');
+            const summary = document.getElementById('achSummary');
+            const unlocked = ACHIEVEMENTS.filter(a => a.check(data)).length;
+            if (summary) summary.textContent = `${unlocked}/${ACHIEVEMENTS.length} unlocked • ${Math.round((unlocked / Math.max(1, ACHIEVEMENTS.length)) * 100)}% complete`;
             list.innerHTML = ACHIEVEMENTS.map(a => {
                 const isUnlocked = a.check(data);
                 return `
                     <div class="achievement ${isUnlocked ? 'unlocked' : 'locked'} bg-dark-700 rounded-xl p-3 text-center">
+                        <div class="text-[8px] mb-1 ${isUnlocked ? 'text-emerald-300' : 'text-gray-500'}">${isUnlocked ? 'Unlocked' : 'Locked'}</div>
                         <div class="text-2xl mb-1">${a.icon}</div>
                         <p class="text-[10px] font-semibold mb-0.5">${a.name}</p>
                         <p class="text-[8px] text-gray-500">${a.desc}</p>
@@ -2282,7 +2381,37 @@
             
             let a = 0, h = 0;
             SUBJECTS.forEach(s => { const d = data.att[s] || { a: 0, h: 0 }; a += d.a; h += d.h; });
-            document.getElementById('pPct').textContent = h ? Math.round(a / h * 100) + '%' : '100%';
+            const overall = h ? Math.round(a / h * 100) : 100;
+            document.getElementById('pPct').textContent = overall + '%';
+
+            const target = data.targetPct || 75;
+            const progress = Math.min(100, Math.max(0, Math.round((overall / Math.max(1, target)) * 100)));
+            document.getElementById('pTarget').textContent = `${overall}% / ${target}%`;
+            document.getElementById('pTargetBar').style.width = `${progress}%`;
+
+            const critical = SUBJECTS.filter(s => {
+                const d = data.att[s] || { a: 0, h: 0 };
+                return d.h > 0 && (d.a / d.h * 100) < target;
+            }).length;
+            document.getElementById('pCritical').textContent = critical ? `${critical} critical subjects` : 'All subjects safe';
+
+            const byDay = {};
+            DAYS.forEach(dn => byDay[dn] = { p: 0, t: 0 });
+            Object.entries(data.logs).forEach(([id, log]) => {
+                const day = DAYS[fromId(id).getDay()];
+                (log.classes || []).forEach(c => {
+                    if (c.status === 'P') { byDay[day].p++; byDay[day].t++; }
+                    else if (c.status === 'A') byDay[day].t++;
+                });
+            });
+            let bestDay = '-';
+            let bestPct = -1;
+            DAYS.forEach(dn => {
+                if (!byDay[dn].t) return;
+                const pct = byDay[dn].p / byDay[dn].t * 100;
+                if (pct > bestPct) { bestPct = pct; bestDay = `${dn.slice(0, 3)} ${Math.round(pct)}%`; }
+            });
+            document.getElementById('pBestDay').textContent = bestDay === '-' ? 'Best day: -' : `Best day: ${bestDay}`;
             
             document.getElementById('modalProfile').classList.remove('hidden');
         }
@@ -2493,6 +2622,8 @@
         
         function renderDayList() {
             const list = document.getElementById('dayList'), empty = document.getElementById('dayEmpty'), btn = document.getElementById('btnSave');
+            const daySummary = document.getElementById('daySummary');
+            const dayActionRow = document.getElementById('dayActionRow');
             const isFut = selDate > today();
             
             if (!selClasses.length) {
@@ -2500,11 +2631,28 @@
                 empty.classList.remove('hidden');
                 document.getElementById('emptyReason').textContent = getSched(selDate).reason || 'No classes scheduled';
                 btn.classList.add('hidden');
+                if (daySummary) daySummary.classList.add('hidden');
+                if (dayActionRow) dayActionRow.classList.add('hidden');
                 return;
             }
             
             empty.classList.add('hidden');
             btn.classList.remove('hidden');
+            if (dayActionRow) dayActionRow.classList.remove('hidden');
+
+            const pCount = selClasses.filter(c => c.status === 'P').length;
+            const aCount = selClasses.filter(c => c.status === 'A').length;
+            const cCount = selClasses.filter(c => c.status === 'C').length;
+            const uCount = selClasses.filter(c => !c.status).length;
+            if (daySummary) {
+                daySummary.innerHTML = `
+                    <span class="day-pill bg-emerald-500/15 text-emerald-300">P: ${pCount}</span>
+                    <span class="day-pill bg-red-500/15 text-red-300">A: ${aCount}</span>
+                    <span class="day-pill bg-gray-500/15 text-gray-300">C: ${cCount}</span>
+                    <span class="day-pill bg-blue-500/15 text-blue-300">Unmarked: ${uCount}</span>
+                `;
+                daySummary.classList.remove('hidden');
+            }
             
             list.innerHTML = selClasses.map((c, i) => `
                 <div class="flex items-center justify-between bg-dark-700 hover:bg-dark-600 rounded-xl px-3 py-2.5 transition-colors">
@@ -2523,6 +2671,13 @@
                 </div>
             `).join('');
         }
+
+        function setAllStatus(status) {
+            if (!selClasses.length) return;
+            selClasses = selClasses.map(c => ({ ...c, status }));
+            dirty = true;
+            renderDayList();
+        }
         
         function setStatus(i, s) { selClasses[i].status = s; dirty = true; renderDayList(); }
         function removeClass(i) { selClasses.splice(i, 1); dirty = true; renderDayList(); }
@@ -2534,7 +2689,7 @@
                 const isFut = selDate > today();
                 const classesToSave = isFut
                     ? selClasses.map(c => ({ subj: c.subj, status: null }))
-                    : selClasses;
+                    : selClasses.map(c => ({ subj: c.subj, status: c.status || 'P' }));
                 await saveLog(selDate, { date: selDate, classes: classesToSave });
                 recalc(); updateStreak(); await saveData(); render(); dirty = false; 
                 hideLoading();
