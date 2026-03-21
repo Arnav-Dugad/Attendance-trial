@@ -121,6 +121,7 @@
         .collapse-body.hidden { display: none; }
         header.glass { backdrop-filter: blur(14px); }
         .glass { box-shadow: inset 0 1px 0 rgba(255,255,255,0.02); }
+        #scheduleDnD input[type="time"] { color-scheme: dark; min-width: 84px; }
         @media (max-width: 640px) {
             main { padding-left: 0.6rem !important; padding-right: 0.6rem !important; }
             #weeklyTrend { height: 5.5rem; gap: 0.2rem; }
@@ -146,6 +147,7 @@
             #modalSubjects #scheduleEditor .sched-row { align-items: flex-start; }
             #modalSubjects #scheduleEditor .sched-day { width: 44px; padding-top: 0.45rem; }
             #modalSubjects #subjectActions { position: sticky; bottom: 0; background: linear-gradient(to top, rgba(8, 8, 12, 0.95), rgba(8, 8, 12, 0.72)); padding-top: 0.5rem; }
+            #scheduleDnD input[type="time"] { min-width: 78px; height: 1.45rem; }
         }
     </style>
 </head>
@@ -1216,14 +1218,44 @@
             const raw = String(value || '').trim();
             if (!raw) return '';
             const m = raw.match(/^(\d{1,2})(?::?(\d{1,2}))?\s*([ap]m)?$/i);
-            if (!m) return sanitizeText(raw, 12);
+            if (!m) return '';
             let hh = parseInt(m[1], 10);
             let mm = m[2] ? parseInt(m[2], 10) : 0;
             const ap = (m[3] || '').toLowerCase();
-            if (Number.isNaN(hh) || Number.isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return sanitizeText(raw, 12);
+            if (Number.isNaN(hh) || Number.isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return '';
             if (ap === 'pm' && hh < 12) hh += 12;
             if (ap === 'am' && hh === 12) hh = 0;
             return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+        };
+        const toMinutes = time24 => {
+            const t = normalizeSlotTime(time24);
+            if (!t) return null;
+            const [h, m] = t.split(':').map(Number);
+            if (!Number.isInteger(h) || !Number.isInteger(m)) return null;
+            return h * 60 + m;
+        };
+        const to12h = time24 => {
+            const mins = toMinutes(time24);
+            if (mins === null) return '';
+            const h24 = Math.floor(mins / 60) % 24;
+            const m = mins % 60;
+            const ap = h24 >= 12 ? 'PM' : 'AM';
+            const h12 = h24 % 12 || 12;
+            return `${h12}:${String(m).padStart(2, '0')} ${ap}`;
+        };
+        const isTempLabSubject = code => {
+            const normalized = normalizeCode(code);
+            const row = tempSubjectRows.find(r => normalizeCode(r.code) === normalized);
+            return !!row?.isLab;
+        };
+        const slotRangeText = (code, startTime, useTempMeta = false) => {
+            const start = toMinutes(startTime);
+            if (start === null) return 'Set start time';
+            const isLab = useTempMeta ? isTempLabSubject(code) : LABS.includes(code);
+            const dur = isLab ? 150 : 60;
+            const end = (start + dur) % (24 * 60);
+            const endStr = to12h(`${String(Math.floor(end / 60)).padStart(2, '0')}:${String(end % 60).padStart(2, '0')}`);
+            return `${to12h(startTime)} - ${endStr}`;
         };
         const csvEscape = v => `"${String(v ?? '').replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`;
         const toast = m => { const t = document.getElementById('toast'); t.textContent = m; t.classList.remove('translate-y-8', 'opacity-0'); setTimeout(() => t.classList.add('translate-y-8', 'opacity-0'), 2500); };
@@ -2310,7 +2342,7 @@
                         <div class="flex flex-wrap gap-1">
                             ${subjs.length ? subjs.map((s, idx) => {
                                 const t = normalizeSlotTime(times[idx] || '');
-                                return `<span class="badge ${LABS.includes(s) ? 'badge-purple' : 'badge-info'}">${s}${t ? ` • ${t}` : ''}</span>`;
+                                return `<span class="badge ${LABS.includes(s) ? 'badge-purple' : 'badge-info'}">${s}${t ? ` • ${slotRangeText(s, t)}` : ''}</span>`;
                             }).join('') : '<span class="text-[10px] text-gray-500">Holiday</span>'}
                         </div>
                     </div>
@@ -3212,9 +3244,19 @@
                     ${DAYS.map((day, i) => {
                         const chips = (tempSchedule[i] || []).map((code, idx) => {
                             const t = normalizeSlotTime(tempScheduleTimes[i]?.[idx] || '');
-                            return `<span draggable="true" ondragstart="scheduleDragStart(event, '${code}', ${i}, ${idx}, '${t}')" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-dark-500 text-[10px] cursor-move">${code}${t ? `<span class='text-[9px] text-gray-300'>${t}</span>` : ''}<button type="button" onclick="removeScheduleChip(${i}, ${idx})" class="text-gray-400 hover:text-red-400">×</button></span>`;
+                            return `<span draggable="true" ondragstart="scheduleDragStart(event, '${code}', ${i}, ${idx}, '${t}')" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-dark-500 text-[10px] cursor-move">${code}${t ? `<span class='text-[9px] text-gray-300'>${to12h(t)}</span>` : ''}<button type="button" onclick="removeScheduleChip(${i}, ${idx})" class="text-gray-400 hover:text-red-400">×</button></span>`;
                         }).join('');
-                        return `<div class="rounded-lg border border-dark-500 bg-dark-600/40 p-2" ondragover="allowScheduleDrop(event)" ondrop="dropToDay(event, ${i})"><p class="text-[9px] text-gray-400 mb-1">${day}</p><div class="min-h-[28px] flex flex-wrap gap-1.5">${chips || '<span class="text-[9px] text-gray-600">Drop here</span>'}</div></div>`;
+                        const slotControls = (tempSchedule[i] || []).map((code, idx) => {
+                            const t = normalizeSlotTime(tempScheduleTimes[i]?.[idx] || '');
+                            return `
+                                <div class="flex items-center gap-1.5 bg-dark-700/70 rounded-lg px-1.5 py-1">
+                                    <span class="text-[9px] text-cyan-300 min-w-[28px]">${code}</span>
+                                    <input type="time" value="${t}" onchange="setScheduleTime(${i}, ${idx}, this.value)" class="h-6 px-1.5 rounded-md bg-dark-500 border border-dark-500 text-[9px] focus:outline-none focus:border-cyan-500">
+                                    <span class="text-[8px] text-gray-400 truncate">${slotRangeText(code, t, true)}</span>
+                                </div>
+                            `;
+                        }).join('');
+                        return `<div class="rounded-lg border border-dark-500 bg-dark-600/40 p-2" ondragover="allowScheduleDrop(event)" ondrop="dropToDay(event, ${i})"><p class="text-[9px] text-gray-400 mb-1">${day}</p><div class="min-h-[28px] flex flex-wrap gap-1.5">${chips || '<span class="text-[9px] text-gray-600">Drop here</span>'}</div>${slotControls ? `<div class='mt-1.5 space-y-1'>${slotControls}</div>` : ''}</div>`;
                     }).join('')}
                 </div>
             `;
