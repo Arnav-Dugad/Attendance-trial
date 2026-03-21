@@ -1285,6 +1285,44 @@
         let tempSubjectRows = [], tempSchedule = {}, tempScheduleTimes = {};
         let isOnline = navigator.onLine;
 
+        function buildDefaultUserDoc() {
+            const subjectMeta = getDefaultSubjectList();
+            const schedule = JSON.parse(JSON.stringify(DEFAULT_SCHED));
+            const scheduleTimes = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+            const att = {};
+            subjectMeta.forEach(row => {
+                const code = String(row.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+                if (code) att[code] = { a: 0, h: 0 };
+            });
+            return {
+                att,
+                logs: {},
+                cal: { ...CAL_DEFAULT },
+                semStart: null,
+                semEnd: null,
+                notes: {},
+                bestStreak: 0,
+                targetPct: 75,
+                subjectMeta,
+                schedule,
+                scheduleTimes,
+                explored: false,
+                backedUp: false,
+                autoFillMissedEnabled: true,
+                autoFillWindowDays: 90
+            };
+        }
+
+        function resetClientDataState() {
+            data = buildDefaultUserDoc();
+            syncSubjectConfig();
+            selDate = null;
+            selClasses = [];
+            bulkSet.clear();
+            dirty = false;
+            curMonth = new Date();
+        }
+
         // =====================================================================
         // UTILS
         // =====================================================================
@@ -1528,17 +1566,26 @@
                 user = u;
                 showLoading('Loading your data...');
                 document.getElementById('auth').classList.add('hidden');
-                document.getElementById('app').classList.remove('hidden');
+                document.getElementById('app').classList.add('hidden');
                 const name = sanitizeText(u.displayName || u.email?.split('@')[0] || 'User', 40);
                 document.getElementById('hdrUser').textContent = name;
                 document.getElementById('hdrAvatar').textContent = name.charAt(0).toUpperCase();
-                await loadData();
-                selectDay(today());
-                render();
-                hideLoading();
-                checkAlerts();
+                try {
+                    await loadData();
+                    selectDay(today());
+                    render();
+                    checkAlerts();
+                    document.getElementById('app').classList.remove('hidden');
+                } catch (err) {
+                    console.error('Failed to load account data:', err);
+                    authErr('Could not load account data. Please sign in again.');
+                    await auth.signOut();
+                } finally {
+                    hideLoading();
+                }
             } else {
                 user = null;
+                resetClientDataState();
                 document.getElementById('auth').classList.remove('hidden');
                 document.getElementById('app').classList.add('hidden');
                 hideLoading();
@@ -1549,24 +1596,24 @@
         // DATABASE
         // =====================================================================
         async function initUser(u) {
-            const att = {}; SUBJECTS.forEach(s => att[s] = { a: 0, h: 0 });
+            const fresh = buildDefaultUserDoc();
             await db.collection('att_users').doc(u.uid).set({ 
                 email: u.email, 
                 name: u.displayName, 
-                att, 
-                cal: { ...CAL_DEFAULT },
-                semStart: null,
-                semEnd: null,
-                notes: {},
-                bestStreak: 0,
-                targetPct: 75,
-                subjectMeta: clone(data.subjectMeta),
-                schedule: clone(data.schedule),
-                scheduleTimes: clone(data.scheduleTimes),
-                explored: false,
-                backedUp: false,
-                autoFillMissedEnabled: true,
-                autoFillWindowDays: 90,
+                att: fresh.att,
+                cal: fresh.cal,
+                semStart: fresh.semStart,
+                semEnd: fresh.semEnd,
+                notes: fresh.notes,
+                bestStreak: fresh.bestStreak,
+                targetPct: fresh.targetPct,
+                subjectMeta: fresh.subjectMeta,
+                schedule: fresh.schedule,
+                scheduleTimes: fresh.scheduleTimes,
+                explored: fresh.explored,
+                backedUp: fresh.backedUp,
+                autoFillMissedEnabled: fresh.autoFillMissedEnabled,
+                autoFillWindowDays: fresh.autoFillWindowDays,
                 created: firebase.firestore.FieldValue.serverTimestamp() 
             });
         }
