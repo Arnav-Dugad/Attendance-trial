@@ -119,6 +119,8 @@
         .safe-area-top { padding-top: env(safe-area-inset-top, 0); }
         .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom, 0); }
         .collapse-body.hidden { display: none; }
+        header.glass { backdrop-filter: blur(14px); }
+        .glass { box-shadow: inset 0 1px 0 rgba(255,255,255,0.02); }
         @media (max-width: 640px) {
             main { padding-left: 0.6rem !important; padding-right: 0.6rem !important; }
             #weeklyTrend { height: 5.5rem; gap: 0.2rem; }
@@ -131,7 +133,10 @@
             .quick-btn { min-height: 42px; }
             .subject-tag { font-size: 9px; }
             #dayList .btn { width: 34px; height: 34px; }
-            #syncHeaderPanel { left: 0.5rem !important; right: 0.5rem !important; }
+            #projList .grid { gap: 0.2rem; }
+            header .max-w-lg { gap: 0.45rem; }
+            header .max-w-lg > div:last-child { gap: 0.1rem; }
+            .tooltip { display: none; }
         }
     </style>
 </head>
@@ -147,7 +152,7 @@
 
     <!-- Offline Indicator -->
     <div id="offlineBar" class="hidden fixed top-0 left-0 right-0 z-[70] bg-amber-500 text-black text-center py-1 text-xs font-medium">
-        You're offline • Changes will sync when connected
+        You're offline • Data updates when connection returns
     </div>
 
     <!-- AUTH -->
@@ -217,13 +222,6 @@
                     </div>
                 </div>
                 <div class="flex gap-0.5">
-                    <button onclick="toggleSyncPanel()" id="hdrSyncBtn" class="p-2 rounded-xl hover:bg-dark-600 btn has-tooltip" title="Cloud Sync">
-                        <div class="flex items-center gap-1 text-[10px]">
-                            <span id="hdrSyncDot" class="inline-block w-2 h-2 rounded-full bg-blue-400"></span>
-                            <span id="hdrSyncText">Sync</span>
-                        </div>
-                        <span class="tooltip">Cloud Sync</span>
-                    </button>
                     <button onclick="openSearch()" class="p-2 rounded-xl hover:bg-dark-600 btn has-tooltip" title="Search">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                         <span class="tooltip">Search</span>
@@ -243,28 +241,6 @@
                 </div>
             </div>
         </header>
-
-        <div id="syncHeaderPanel" class="hidden glass rounded-2xl p-3 mx-3 mt-2">
-            <div class="flex items-center justify-between mb-2">
-                <h3 class="text-xs font-semibold flex items-center gap-1">☁️ Cloud Sync</h3>
-                <span id="syncBadge" class="badge badge-info">Idle</span>
-            </div>
-            <div class="grid grid-cols-3 gap-2 mb-2">
-                <div class="bg-dark-700 rounded-xl p-2.5 text-center">
-                    <p class="text-sm font-bold text-blue-400" id="syncPending">0</p>
-                    <p class="text-[9px] text-gray-500">Pending</p>
-                </div>
-                <div class="bg-dark-700 rounded-xl p-2.5 text-center">
-                    <p class="text-sm font-bold text-emerald-400" id="syncLast">-</p>
-                    <p class="text-[9px] text-gray-500">Last Sync</p>
-                </div>
-                <div class="bg-dark-700 rounded-xl p-2.5 text-center">
-                    <p class="text-sm font-bold text-amber-400" id="syncRetry">0</p>
-                    <p class="text-[9px] text-gray-500">Retry Queue</p>
-                </div>
-            </div>
-            <div id="syncHistory" class="max-h-24 overflow-y-auto hide-scroll space-y-1"></div>
-        </div>
 
         <!-- Quick Stats Bar -->
         <div id="quickStatsBar" class="bg-dark-800 border-b border-white/5 py-2 px-3">
@@ -413,10 +389,10 @@
                     <h3 class="text-xs font-semibold flex items-center gap-1">🎯 75% Threshold Tracker</h3>
                     <div class="flex items-center gap-2">
                         <span class="text-[10px] text-gray-500">With reach dates</span>
-                        <button onclick="toggleThresholdTracker()" class="text-[10px] text-blue-400 btn" id="thresholdToggle">Hide</button>
+                        <button onclick="toggleThresholdTracker()" class="text-[10px] text-blue-400 btn" id="thresholdToggle">Show</button>
                     </div>
                 </div>
-                <div id="thresholdBody" class="collapse-body space-y-0">
+                <div id="thresholdBody" class="collapse-body hidden space-y-0">
                 <div id="thresholdStats" class="space-y-1.5"></div>
                 <div class="grid grid-cols-3 gap-2 mt-2">
                     <div class="bg-dark-700 rounded-xl p-2.5 text-center">
@@ -583,10 +559,10 @@
                     <h3 class="text-xs font-semibold">🧭 Safe Bunk Planner</h3>
                     <div class="flex items-center gap-2">
                         <span class="text-[10px] text-gray-500">Subject-level</span>
-                        <button onclick="toggleSafeBunkPlanner()" class="text-[10px] text-blue-400 btn" id="safeBunkToggle">Hide</button>
+                        <button onclick="toggleSafeBunkPlanner()" class="text-[10px] text-blue-400 btn" id="safeBunkToggle">Show</button>
                     </div>
                 </div>
-                <div id="safeBunkBody" class="collapse-body">
+                <div id="safeBunkBody" class="collapse-body hidden">
                 <div id="safeBunkPlanner" class="space-y-1.5"></div>
                 </div>
             </div>
@@ -617,7 +593,11 @@
             <!-- Semester End Projection -->
             <div class="glass rounded-2xl p-3 glass-hover">
                 <div class="flex items-center justify-between mb-2">
-                    <h3 class="text-xs font-semibold">📈 Semester End Projection</h3>
+                    <h3 class="text-xs font-semibold flex items-center gap-1">📈 Semester End Projection
+                        <span class="has-tooltip inline-flex items-center justify-center w-4 h-4 rounded-full bg-dark-600 text-[9px] text-blue-300">i
+                            <span class="tooltip">Confidence band uses your subject attendance sample size. Lower sample count means wider uncertainty.</span>
+                        </span>
+                    </h3>
                     <button onclick="toggleProjection()" class="text-[10px] text-blue-400 btn" id="projToggle">Show</button>
                 </div>
                 <div id="projBox" class="hidden space-y-2">
@@ -989,6 +969,22 @@
                 </div>
 
                 <div class="bg-dark-700 rounded-xl p-3">
+                    <p class="text-[10px] font-medium mb-2">Auto-fill Missed Days</p>
+                    <label class="flex items-center justify-between text-[10px] mb-2">
+                        <span class="text-gray-400">Enable automatic full-present backfill</span>
+                        <input type="checkbox" id="autoFillEnabled" class="w-4 h-4 rounded bg-dark-600 border-dark-500 text-blue-500">
+                    </label>
+                    <label class="text-[9px] text-gray-500">Backfill Window</label>
+                    <select id="autoFillWindow" class="w-full mt-1 px-3 py-2 bg-dark-600 border border-dark-500 rounded-lg text-[11px] focus:outline-none focus:border-blue-500">
+                        <option value="30">Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                        <option value="180">Last 180 days</option>
+                        <option value="365">Last 365 days</option>
+                    </select>
+                    <button onclick="saveAutoFillSettings()" class="w-full mt-2 py-2 rounded-lg bg-blue-500 text-[10px] font-medium btn">Save Auto-fill Settings</button>
+                </div>
+
+                <div class="bg-dark-700 rounded-xl p-3">
                     <p class="text-[10px] font-medium mb-2">Backup & Restore</p>
                     <div class="space-y-2">
                         <button onclick="backupData()" class="w-full py-2 rounded-lg bg-dark-600 hover:bg-dark-500 text-[10px] btn flex items-center justify-center gap-2">
@@ -1179,13 +1175,12 @@
         // =====================================================================
         // STATE
         // =====================================================================
-        let user = null, data = { att: {}, logs: {}, cal: {}, semStart: null, semEnd: null, notes: {}, bestStreak: 0, targetPct: 75, subjectMeta: null, schedule: null, explored: false, backedUp: false };
+        let user = null, data = { att: {}, logs: {}, cal: {}, semStart: null, semEnd: null, notes: {}, bestStreak: 0, targetPct: 75, subjectMeta: null, schedule: null, explored: false, backedUp: false, autoFillMissedEnabled: true, autoFillWindowDays: 90 };
         let selDate = null, selClasses = [];
         let curMonth = new Date(), subjExp = false, dirty = false, bulkSet = new Set();
         let tempClasses = [];
         let tempSubjectRows = [], tempSchedule = {};
         let isOnline = navigator.onLine;
-        let syncState = { lastSynced: null, pendingWrites: 0, retryQueue: [], history: [] };
 
         // =====================================================================
         // UTILS
@@ -1208,11 +1203,6 @@
                 data.explored = true;
                 if (user) saveData().catch(() => {});
             }
-        };
-
-        const shortTime = iso => {
-            if (!iso) return '-';
-            return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         };
 
         function getDefaultSubjectList() {
@@ -1323,33 +1313,16 @@
             return { reached: false, date: null, message: 'Not reachable in current timetable' };
         }
 
-        function pushSyncHistory(status, action, detail = '') {
-            const entry = { time: new Date().toISOString(), status, action, detail };
-            syncState.history.unshift(entry);
-            syncState.history = syncState.history.slice(0, 15);
-            renderSyncStatus();
-        }
-
-        function startSync(action) {
-            syncState.pendingWrites += 1;
-            pushSyncHistory('pending', action, 'Queued');
-        }
-
-        function finishSync(action, ok, errMessage = '') {
-            syncState.pendingWrites = Math.max(0, syncState.pendingWrites - 1);
-            if (ok) {
-                syncState.lastSynced = new Date().toISOString();
-                pushSyncHistory('ok', action, 'Synced');
-            } else {
-                syncState.retryQueue.unshift({ time: new Date().toISOString(), action, error: errMessage || 'Unknown error' });
-                syncState.retryQueue = syncState.retryQueue.slice(0, 20);
-                pushSyncHistory('fail', action, errMessage || 'Failed');
-            }
-        }
-
         // Online/Offline handling
-        window.addEventListener('online', () => { isOnline = true; document.getElementById('offlineBar').classList.add('hidden'); pushSyncHistory('ok', 'network', 'Online'); });
-        window.addEventListener('offline', () => { isOnline = false; document.getElementById('offlineBar').classList.remove('hidden'); pushSyncHistory('fail', 'network', 'Offline'); });
+        window.addEventListener('online', () => {
+            isOnline = true;
+            document.getElementById('offlineBar').classList.add('hidden');
+        });
+        window.addEventListener('offline', () => {
+            isOnline = false;
+            document.getElementById('offlineBar').classList.remove('hidden');
+        });
+        if (!isOnline) document.getElementById('offlineBar').classList.remove('hidden');
         syncSubjectConfig();
 
         // =====================================================================
@@ -1424,6 +1397,8 @@
                 schedule: clone(data.schedule),
                 explored: false,
                 backedUp: false,
+                autoFillMissedEnabled: true,
+                autoFillWindowDays: 90,
                 created: firebase.firestore.FieldValue.serverTimestamp() 
             });
         }
@@ -1441,6 +1416,8 @@
             if (!data.targetPct) data.targetPct = 75;
             if (typeof data.explored !== 'boolean') data.explored = false;
             if (typeof data.backedUp !== 'boolean') data.backedUp = false;
+            if (typeof data.autoFillMissedEnabled !== 'boolean') data.autoFillMissedEnabled = true;
+            data.autoFillWindowDays = [30, 90, 180, 365].includes(parseInt(data.autoFillWindowDays, 10)) ? parseInt(data.autoFillWindowDays, 10) : 90;
             syncSubjectConfig();
             const logs = await db.collection('att_users').doc(user.uid).collection('logs').get();
             data.logs = {}; logs.forEach(d => data.logs[d.id] = d.data());
@@ -1456,38 +1433,26 @@
         }
         
         const saveData = async () => {
-            startSync('saveData');
-            try {
-                await db.collection('att_users').doc(user.uid).update({
-                    att: data.att,
-                    cal: data.cal,
-                    semStart: data.semStart,
-                    semEnd: data.semEnd,
-                    notes: data.notes,
-                    bestStreak: data.bestStreak || 0,
-                    targetPct: data.targetPct || 75,
-                    subjectMeta: clone(data.subjectMeta),
-                    schedule: clone(data.schedule),
-                    explored: !!data.explored,
-                    backedUp: !!data.backedUp
-                });
-                finishSync('saveData', true);
-                showSaveIndicator();
-            } catch (err) {
-                finishSync('saveData', false, err?.message || 'saveData failed');
-                throw err;
-            }
+            await db.collection('att_users').doc(user.uid).update({
+                att: data.att,
+                cal: data.cal,
+                semStart: data.semStart,
+                semEnd: data.semEnd,
+                notes: data.notes,
+                bestStreak: data.bestStreak || 0,
+                targetPct: data.targetPct || 75,
+                subjectMeta: clone(data.subjectMeta),
+                schedule: clone(data.schedule),
+                explored: !!data.explored,
+                backedUp: !!data.backedUp,
+                autoFillMissedEnabled: data.autoFillMissedEnabled !== false,
+                autoFillWindowDays: [30, 90, 180, 365].includes(parseInt(data.autoFillWindowDays, 10)) ? parseInt(data.autoFillWindowDays, 10) : 90
+            });
+            showSaveIndicator();
         };
         const saveLog = async (id, log) => {
-            startSync(`saveLog:${id}`);
-            try {
-                await db.collection('att_users').doc(user.uid).collection('logs').doc(id).set(log);
-                data.logs[id] = log;
-                finishSync(`saveLog:${id}`, true);
-            } catch (err) {
-                finishSync(`saveLog:${id}`, false, err?.message || 'saveLog failed');
-                throw err;
-            }
+            await db.collection('att_users').doc(user.uid).collection('logs').doc(id).set(log);
+            data.logs[id] = log;
         };
         const clearAllLogs = async () => {
             const snap = await db.collection('att_users').doc(user.uid).collection('logs').get();
@@ -1501,6 +1466,7 @@
 
         async function autoFillMissedDays() {
             if (!user) return 0;
+            if (data.autoFillMissedEnabled === false) return 0;
             const endDate = fromId(today());
             endDate.setDate(endDate.getDate() - 1);
 
@@ -1517,7 +1483,7 @@
 
             const missing = [];
             const cursor = new Date(startDate);
-            const maxWindowDays = 365;
+            const maxWindowDays = [30, 90, 180, 365].includes(parseInt(data.autoFillWindowDays, 10)) ? parseInt(data.autoFillWindowDays, 10) : 90;
             let scanned = 0;
             while (cursor <= endDate && scanned < maxWindowDays) {
                 const id = toId(cursor);
@@ -1533,7 +1499,6 @@
 
             if (!missing.length) return 0;
 
-            startSync('autoFillMissedDays');
             try {
                 for (let i = 0; i < missing.length; i += 300) {
                     const chunk = missing.slice(i, i + 300);
@@ -1547,10 +1512,9 @@
                         data.logs[item.id] = { date: item.id, classes: item.classes };
                     });
                 }
-                finishSync('autoFillMissedDays', true);
                 return missing.length;
             } catch (err) {
-                finishSync('autoFillMissedDays', false, err?.message || 'autofill failed');
+                console.warn('Auto-fill missed days failed:', err);
                 return 0;
             }
         }
@@ -1644,7 +1608,6 @@
             renderToday();
             renderSemesterProgress();
             renderWeeklyTrend();
-            renderSyncStatus();
             updateBulk();
             checkAlerts();
             checkAchievements();
@@ -1933,58 +1896,6 @@
             document.getElementById('tLeftTotal').textContent = totalLeft;
             document.getElementById('tClosest').textContent = closest ? `${closest.subj} (${closest.left})` : '-';
             document.getElementById('tToughest').textContent = toughest ? `${toughest.subj} (${toughest.left})` : '-';
-        }
-
-        function renderSyncStatus() {
-            const pendingEl = document.getElementById('syncPending');
-            const lastEl = document.getElementById('syncLast');
-            const retryEl = document.getElementById('syncRetry');
-            const badgeEl = document.getElementById('syncBadge');
-            const historyEl = document.getElementById('syncHistory');
-            if (!pendingEl || !lastEl || !retryEl || !badgeEl || !historyEl) return;
-
-            pendingEl.textContent = syncState.pendingWrites;
-            retryEl.textContent = syncState.retryQueue.length;
-            lastEl.textContent = shortTime(syncState.lastSynced);
-
-            const hdrSyncText = document.getElementById('hdrSyncText');
-            const hdrSyncDot = document.getElementById('hdrSyncDot');
-
-            if (!isOnline) {
-                badgeEl.textContent = 'Offline';
-                badgeEl.className = 'badge badge-warning';
-                if (hdrSyncText) hdrSyncText.textContent = 'Offline';
-                if (hdrSyncDot) hdrSyncDot.className = 'inline-block w-2 h-2 rounded-full bg-amber-400';
-            } else if (syncState.pendingWrites > 0) {
-                badgeEl.textContent = 'Syncing';
-                badgeEl.className = 'badge badge-info';
-                if (hdrSyncText) hdrSyncText.textContent = 'Syncing';
-                if (hdrSyncDot) hdrSyncDot.className = 'inline-block w-2 h-2 rounded-full bg-blue-400 animate-pulse';
-            } else if (syncState.retryQueue.length > 0) {
-                badgeEl.textContent = 'Retry Needed';
-                badgeEl.className = 'badge badge-danger';
-                if (hdrSyncText) hdrSyncText.textContent = 'Retry';
-                if (hdrSyncDot) hdrSyncDot.className = 'inline-block w-2 h-2 rounded-full bg-red-400';
-            } else {
-                badgeEl.textContent = 'Healthy';
-                badgeEl.className = 'badge badge-success';
-                if (hdrSyncText) hdrSyncText.textContent = syncState.lastSynced ? `Synced ${shortTime(syncState.lastSynced)}` : 'Healthy';
-                if (hdrSyncDot) hdrSyncDot.className = 'inline-block w-2 h-2 rounded-full bg-emerald-400';
-            }
-
-            historyEl.innerHTML = syncState.history.length
-                ? syncState.history.slice(0, 8).map(item => {
-                    const color = item.status === 'ok' ? 'text-emerald-300' : item.status === 'fail' ? 'text-red-300' : 'text-blue-300';
-                    const ts = shortTime(item.time);
-                    return `<div class="text-[9px] bg-dark-700 rounded-lg px-2 py-1.5 flex items-center justify-between"><span class="${color}">${item.action}</span><span class="text-gray-500">${ts}</span></div>`;
-                }).join('')
-                : '<p class="text-[10px] text-gray-500">No sync activity yet</p>';
-        }
-
-        function toggleSyncPanel() {
-            const panel = document.getElementById('syncHeaderPanel');
-            if (!panel) return;
-            panel.classList.toggle('hidden');
         }
 
         function toggleThresholdTracker() {
@@ -3071,9 +2982,22 @@
             document.getElementById('semStart').value = data.semStart || '';
             document.getElementById('semEnd').value = data.semEnd || '';
             document.getElementById('targetPct').value = data.targetPct || 75;
+            document.getElementById('autoFillEnabled').checked = data.autoFillMissedEnabled !== false;
+            document.getElementById('autoFillWindow').value = String([30, 90, 180, 365].includes(parseInt(data.autoFillWindowDays, 10)) ? parseInt(data.autoFillWindowDays, 10) : 90);
             document.getElementById('modalSettings').classList.remove('hidden');
         }
         function closeSettings() { document.getElementById('modalSettings').classList.add('hidden'); }
+
+        async function saveAutoFillSettings() {
+            const enabled = !!document.getElementById('autoFillEnabled').checked;
+            const windowDays = parseInt(document.getElementById('autoFillWindow').value, 10);
+            data.autoFillMissedEnabled = enabled;
+            data.autoFillWindowDays = [30, 90, 180, 365].includes(windowDays) ? windowDays : 90;
+            showLoading('Saving...');
+            await saveData();
+            hideLoading();
+            toast(`✓ Auto-fill ${enabled ? 'enabled' : 'disabled'} (${data.autoFillWindowDays}d window)`);
+        }
 
         async function saveTargetPct() {
             const val = parseInt(document.getElementById('targetPct').value) || 75;
@@ -3353,7 +3277,9 @@
                     subjectMeta: data.subjectMeta,
                     schedule: data.schedule,
                     explored: !!data.explored,
-                    backedUp: true
+                    backedUp: true,
+                    autoFillMissedEnabled: data.autoFillMissedEnabled !== false,
+                    autoFillWindowDays: [30, 90, 180, 365].includes(parseInt(data.autoFillWindowDays, 10)) ? parseInt(data.autoFillWindowDays, 10) : 90
                 }
             };
             
@@ -3422,6 +3348,9 @@
                 }
                 data.explored = !!(backup.data.explored ?? data.explored);
                 data.backedUp = !!(backup.data.backedUp ?? data.backedUp);
+                data.autoFillMissedEnabled = typeof backup.data.autoFillMissedEnabled === 'boolean' ? backup.data.autoFillMissedEnabled : data.autoFillMissedEnabled;
+                const importedWindow = parseInt(backup.data.autoFillWindowDays, 10);
+                data.autoFillWindowDays = [30, 90, 180, 365].includes(importedWindow) ? importedWindow : data.autoFillWindowDays;
                 syncSubjectConfig();
                 const allowed = new Set(SUBJECTS);
                 
