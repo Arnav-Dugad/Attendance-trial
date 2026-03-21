@@ -118,15 +118,28 @@
         .gradient-border::before { content: ''; position: absolute; inset: -1px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); border-radius: inherit; z-index: -1; }
         .safe-area-top { padding-top: env(safe-area-inset-top, 0); }
         .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom, 0); }
+        @media (max-width: 640px) {
+            main { padding-left: 0.6rem !important; padding-right: 0.6rem !important; }
+            #weeklyTrend { height: 5.5rem; gap: 0.2rem; }
+            #weeklyLabels { font-size: 9px; }
+            #subjGrid { grid-template-columns: 1fr; }
+            #quickStatsBar .max-w-lg { flex-wrap: wrap; gap: 0.35rem; }
+            #quickStatsBar .max-w-lg > div { width: 100%; justify-content: space-between; }
+            #subjectsTable { overflow-x: auto; }
+            .glass { border-radius: 14px; }
+            .quick-btn { min-height: 42px; }
+            .subject-tag { font-size: 9px; }
+            #dayList .btn { width: 34px; height: 34px; }
+        }
     </style>
 </head>
 <body class="text-gray-100 min-h-screen">
 
     <!-- Loading Overlay -->
-    <div id="loading" class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-black/90 modal-backdrop">
+    <div id="loading" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 modal-backdrop">
         <div class="text-center">
             <div class="w-14 h-14 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p class="text-sm text-gray-400" id="loadingText">Loading...</p>
+            <p class="text-sm text-gray-400" id="loadingText">Checking your session...</p>
         </div>
     </div>
 
@@ -136,7 +149,7 @@
     </div>
 
     <!-- AUTH -->
-    <div id="auth" class="min-h-screen flex items-center justify-center p-4">
+    <div id="auth" class="hidden min-h-screen flex items-center justify-center p-4">
         <div class="glass rounded-2xl p-6 w-full max-w-xs modal-content">
             <div class="text-center mb-5">
                 <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-xl">
@@ -303,9 +316,6 @@
                 </div>
             </div>
 
-            <!-- Alerts -->
-            <div id="alertsBox" class="hidden space-y-2"></div>
-
             <!-- Calendar -->
             <div class="glass rounded-2xl p-3 glass-hover">
                 <div class="flex items-center justify-between mb-3">
@@ -361,6 +371,55 @@
                 <button id="btnSave" onclick="saveDay()" class="hidden w-full mt-3 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 text-xs font-semibold btn shadow-lg shadow-blue-500/25">
                     Save Changes
                 </button>
+            </div>
+
+            <!-- Alerts -->
+            <div id="alertsBox" class="hidden space-y-2"></div>
+
+            <!-- Cloud Sync Status -->
+            <div class="glass rounded-2xl p-3 glass-hover">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-xs font-semibold flex items-center gap-1">☁️ Cloud Sync</h3>
+                    <span id="syncBadge" class="badge badge-info">Idle</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 mb-2">
+                    <div class="bg-dark-700 rounded-xl p-2.5 text-center">
+                        <p class="text-sm font-bold text-blue-400" id="syncPending">0</p>
+                        <p class="text-[9px] text-gray-500">Pending</p>
+                    </div>
+                    <div class="bg-dark-700 rounded-xl p-2.5 text-center">
+                        <p class="text-sm font-bold text-emerald-400" id="syncLast">-</p>
+                        <p class="text-[9px] text-gray-500">Last Sync</p>
+                    </div>
+                    <div class="bg-dark-700 rounded-xl p-2.5 text-center">
+                        <p class="text-sm font-bold text-amber-400" id="syncRetry">0</p>
+                        <p class="text-[9px] text-gray-500">Retry Queue</p>
+                    </div>
+                </div>
+                <div id="syncHistory" class="max-h-24 overflow-y-auto hide-scroll space-y-1"></div>
+            </div>
+
+            <!-- 75% Threshold Tracker -->
+            <div class="glass rounded-2xl p-3 glass-hover">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-xs font-semibold flex items-center gap-1">🎯 75% Threshold Tracker</h3>
+                    <span class="text-[10px] text-gray-500">With reach dates</span>
+                </div>
+                <div id="thresholdStats" class="space-y-1.5"></div>
+                <div class="grid grid-cols-3 gap-2 mt-2">
+                    <div class="bg-dark-700 rounded-xl p-2.5 text-center">
+                        <p class="text-sm font-bold text-amber-400" id="tLeftTotal">0</p>
+                        <p class="text-[9px] text-gray-500">Classes Left</p>
+                    </div>
+                    <div class="bg-dark-700 rounded-xl p-2.5 text-center">
+                        <p class="text-sm font-bold text-emerald-400" id="tClosest">-</p>
+                        <p class="text-[9px] text-gray-500">Closest Subject</p>
+                    </div>
+                    <div class="bg-dark-700 rounded-xl p-2.5 text-center">
+                        <p class="text-sm font-bold text-red-400" id="tToughest">-</p>
+                        <p class="text-[9px] text-gray-500">Most Left</p>
+                    </div>
+                </div>
             </div>
 
             <!-- Streak & Achievements -->
@@ -505,6 +564,15 @@
                 <div id="subjGrid" class="grid grid-cols-2 gap-2"></div>
             </div>
 
+            <!-- Subject Safe Bunk Planner -->
+            <div class="glass rounded-2xl p-3 glass-hover">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-xs font-semibold">🧭 Safe Bunk Planner</h3>
+                    <span class="text-[10px] text-gray-500">Subject-level</span>
+                </div>
+                <div id="safeBunkPlanner" class="space-y-1.5"></div>
+            </div>
+
             <!-- Monthly Summary -->
             <div class="glass rounded-2xl p-3 glass-hover">
                 <div class="flex items-center justify-between mb-2">
@@ -540,6 +608,28 @@
                 </div>
             </div>
 
+            <!-- Trend Forecast with Confidence Bands -->
+            <div class="glass rounded-2xl p-3 glass-hover">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-xs font-semibold">📡 Trend Forecast (Best/Likely/Worst)</h3>
+                    <button onclick="toggleTrendForecast()" class="text-[10px] text-blue-400 btn" id="trendToggle">Show</button>
+                </div>
+                <div id="trendBox" class="hidden space-y-2">
+                    <div id="trendForecastList" class="space-y-1.5"></div>
+                </div>
+            </div>
+
+            <!-- Missed Class Recovery Plan -->
+            <div class="glass rounded-2xl p-3 glass-hover">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-xs font-semibold">🩹 Recovery Plan (Week by Week)</h3>
+                    <button onclick="toggleRecoveryPlan()" class="text-[10px] text-blue-400 btn" id="recoveryToggle">Show</button>
+                </div>
+                <div id="recoveryBox" class="hidden space-y-2">
+                    <div id="recoveryPlanList" class="space-y-2"></div>
+                </div>
+            </div>
+
             <!-- Bulk -->
             <div class="glass rounded-2xl p-3 glass-hover">
                 <div class="flex items-center justify-between">
@@ -556,24 +646,6 @@
                 </div>
             </div>
             
-            <!-- Keyboard Shortcuts -->
-            <div class="glass rounded-2xl p-3 glass-hover">
-                <div class="flex items-center justify-between mb-2">
-                    <h3 class="text-xs font-semibold">⌨️ Keyboard Shortcuts</h3>
-                    <button onclick="toggleShortcuts()" class="text-[10px] text-blue-400 btn" id="shortcutsToggle">Show</button>
-                </div>
-                <div id="shortcutsBox" class="hidden grid grid-cols-2 gap-1.5 text-[10px]">
-                    <div class="bg-dark-700 rounded-lg p-2"><span class="kbd">T</span> Today</div>
-                    <div class="bg-dark-700 rounded-lg p-2"><span class="kbd">C</span> Calculator</div>
-                    <div class="bg-dark-700 rounded-lg p-2"><span class="kbd">E</span> Events</div>
-                    <div class="bg-dark-700 rounded-lg p-2"><span class="kbd">S</span> Settings</div>
-                    <div class="bg-dark-700 rounded-lg p-2"><span class="kbd">H</span> Heatmap</div>
-                    <div class="bg-dark-700 rounded-lg p-2"><span class="kbd">W</span> What-If</div>
-                    <div class="bg-dark-700 rounded-lg p-2"><span class="kbd">M</span> Subjects</div>
-                    <div class="bg-dark-700 rounded-lg p-2"><span class="kbd">←→</span> Month</div>
-                    <div class="bg-dark-700 rounded-lg p-2"><span class="kbd">Esc</span> Close</div>
-                </div>
-            </div>
         </main>
 
         <!-- Save Indicator -->
@@ -1106,6 +1178,7 @@
         let tempClasses = [];
         let tempSubjectRows = [], tempSchedule = {};
         let isOnline = navigator.onLine;
+        let syncState = { lastSynced: null, pendingWrites: 0, retryQueue: [], history: [] };
 
         // =====================================================================
         // UTILS
@@ -1196,6 +1269,8 @@
 
         function classesNeededForTarget(subj, targetPct = 75) {
             const d = data.att[subj] || { a: 0, h: 0 };
+            if (targetPct <= 0) return 0;
+            if (targetPct >= 100) return d.a === d.h ? 0 : Infinity;
             const target = targetPct / 100;
             if (d.h === 0) return 0;
             const currentPct = d.a / d.h * 100;
@@ -1203,9 +1278,66 @@
             return Math.ceil((target * d.h - d.a) / (1 - target));
         }
 
+        function creditRuleTotalClasses(credits) {
+            if (credits >= 4) return 48;
+            if (credits >= 3) return 36;
+            return 12;
+        }
+
+        function classesLeftForCreditThreshold(subj, thresholdPct = 75) {
+            const totalRequiredClasses = creditRuleTotalClasses(CREDITS[subj] || 0);
+            const requiredAttended = Math.ceil((thresholdPct / 100) * totalRequiredClasses);
+            const d = data.att[subj] || { a: 0, h: 0 };
+            const attended = d.a || 0;
+            const held = d.h || 0;
+            const left = Math.max(0, requiredAttended - attended);
+            const remainingInPlan = Math.max(0, totalRequiredClasses - held);
+            return { totalRequiredClasses, requiredAttended, attended, held, left, remainingInPlan };
+        }
+
+        function predictThresholdReachDate(subj, thresholdPct = 75, horizonDays = 365) {
+            const threshold = classesLeftForCreditThreshold(subj, thresholdPct);
+            if (threshold.left <= 0) return { reached: true, date: null, message: 'Already reached' };
+            let needed = threshold.left;
+            const cursor = new Date();
+            for (let i = 0; i < horizonDays; i++) {
+                cursor.setDate(cursor.getDate() + 1);
+                const id = toId(cursor);
+                const count = (getSched(id).subjs || []).filter(code => code === subj).length;
+                if (!count) continue;
+                needed -= count;
+                if (needed <= 0) return { reached: false, date: id, message: short(id) };
+            }
+            return { reached: false, date: null, message: 'Not reachable in current timetable' };
+        }
+
+        function pushSyncHistory(status, action, detail = '') {
+            const entry = { time: new Date().toISOString(), status, action, detail };
+            syncState.history.unshift(entry);
+            syncState.history = syncState.history.slice(0, 15);
+            renderSyncStatus();
+        }
+
+        function startSync(action) {
+            syncState.pendingWrites += 1;
+            pushSyncHistory('pending', action, 'Queued');
+        }
+
+        function finishSync(action, ok, errMessage = '') {
+            syncState.pendingWrites = Math.max(0, syncState.pendingWrites - 1);
+            if (ok) {
+                syncState.lastSynced = new Date().toISOString();
+                pushSyncHistory('ok', action, 'Synced');
+            } else {
+                syncState.retryQueue.unshift({ time: new Date().toISOString(), action, error: errMessage || 'Unknown error' });
+                syncState.retryQueue = syncState.retryQueue.slice(0, 20);
+                pushSyncHistory('fail', action, errMessage || 'Failed');
+            }
+        }
+
         // Online/Offline handling
-        window.addEventListener('online', () => { isOnline = true; document.getElementById('offlineBar').classList.add('hidden'); });
-        window.addEventListener('offline', () => { isOnline = false; document.getElementById('offlineBar').classList.remove('hidden'); });
+        window.addEventListener('online', () => { isOnline = true; document.getElementById('offlineBar').classList.add('hidden'); pushSyncHistory('ok', 'network', 'Online'); });
+        window.addEventListener('offline', () => { isOnline = false; document.getElementById('offlineBar').classList.remove('hidden'); pushSyncHistory('fail', 'network', 'Offline'); });
         syncSubjectConfig();
 
         // =====================================================================
@@ -1305,22 +1437,39 @@
         }
         
         const saveData = async () => {
-            await db.collection('att_users').doc(user.uid).update({
-                att: data.att,
-                cal: data.cal,
-                semStart: data.semStart,
-                semEnd: data.semEnd,
-                notes: data.notes,
-                bestStreak: data.bestStreak || 0,
-                targetPct: data.targetPct || 75,
-                subjectMeta: clone(data.subjectMeta),
-                schedule: clone(data.schedule),
-                explored: !!data.explored,
-                backedUp: !!data.backedUp
-            });
-            showSaveIndicator();
+            startSync('saveData');
+            try {
+                await db.collection('att_users').doc(user.uid).update({
+                    att: data.att,
+                    cal: data.cal,
+                    semStart: data.semStart,
+                    semEnd: data.semEnd,
+                    notes: data.notes,
+                    bestStreak: data.bestStreak || 0,
+                    targetPct: data.targetPct || 75,
+                    subjectMeta: clone(data.subjectMeta),
+                    schedule: clone(data.schedule),
+                    explored: !!data.explored,
+                    backedUp: !!data.backedUp
+                });
+                finishSync('saveData', true);
+                showSaveIndicator();
+            } catch (err) {
+                finishSync('saveData', false, err?.message || 'saveData failed');
+                throw err;
+            }
         };
-        const saveLog = async (id, log) => { await db.collection('att_users').doc(user.uid).collection('logs').doc(id).set(log); data.logs[id] = log; };
+        const saveLog = async (id, log) => {
+            startSync(`saveLog:${id}`);
+            try {
+                await db.collection('att_users').doc(user.uid).collection('logs').doc(id).set(log);
+                data.logs[id] = log;
+                finishSync(`saveLog:${id}`, true);
+            } catch (err) {
+                finishSync(`saveLog:${id}`, false, err?.message || 'saveLog failed');
+                throw err;
+            }
+        };
         const clearAllLogs = async () => {
             const snap = await db.collection('att_users').doc(user.uid).collection('logs').get();
             const docs = snap.docs;
@@ -1413,11 +1562,14 @@
         function render() {
             renderCal();
             renderStats();
+            renderThresholdStats();
             renderSubj();
+            renderSafeBunkPlanner();
             renderInsights();
             renderToday();
             renderSemesterProgress();
             renderWeeklyTrend();
+            renderSyncStatus();
             updateBulk();
             checkAlerts();
             checkAchievements();
@@ -1499,7 +1651,7 @@
             const start = new Date(data.semStart);
             const end = new Date(data.semEnd);
             const now = new Date();
-            const total = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+            const total = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
             const elapsed = Math.ceil((now - start) / (1000 * 60 * 60 * 24));
             const remaining = Math.max(0, Math.ceil((end - now) / (1000 * 60 * 60 * 24)));
             const progress = Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)));
@@ -1559,13 +1711,13 @@
 
             container.innerHTML = days.map(d => {
                 if (d.pct === null) {
-                    return `<div class="flex-1 flex flex-col items-center">
-                        <div class="w-full h-full bg-dark-600 rounded-t" style="min-height:6px"></div>
+                    return `<div class="flex-1 h-full flex flex-col items-center justify-end">
+                        <div class="w-full bg-dark-600 rounded-t" style="height:8%;min-height:6px"></div>
                     </div>`;
                 }
                 const height = Math.min(100, Math.max(10, d.pct));
                 const color = d.pct >= target ? 'bg-emerald-500' : d.pct >= 50 ? 'bg-amber-500' : 'bg-red-500';
-                return `<div class="flex-1 flex flex-col items-center justify-end has-tooltip">
+                return `<div class="flex-1 h-full flex flex-col items-center justify-end has-tooltip">
                     <div class="${color} w-full rounded-t transition-all" style="height:${height}%"></div>
                     <span class="tooltip">${short(d.id)}: ${Math.round(d.pct)}% (${d.a}/${d.h})</span>
                 </div>`;
@@ -1630,7 +1782,7 @@
             document.getElementById('sA').textContent = a;
             document.getElementById('sH').textContent = h;
             document.getElementById('sMissed').textContent = h - a;
-            document.getElementById('sS').textContent = Math.round(h / lim * 100) + '%';
+            document.getElementById('sS').textContent = lim ? Math.round(h / lim * 100) + '%' : '0%';
 
             // Update ring
             const circumference = 2 * Math.PI * 35;
@@ -1665,6 +1817,125 @@
                 qsCritical.textContent = 'All good';
                 qsCritical.className = 'text-emerald-400';
             }
+        }
+
+        function renderThresholdStats() {
+            const box = document.getElementById('thresholdStats');
+            if (!box) return;
+
+            const rows = SUBJECTS.map(s => {
+                const t = classesLeftForCreditThreshold(s, 75);
+                return { subj: s, ...t };
+            });
+
+            if (!rows.length) {
+                box.innerHTML = '<p class="text-[10px] text-gray-500">No subjects available</p>';
+                return;
+            }
+
+            box.innerHTML = rows.map(r => {
+                const done = r.left === 0;
+                const impossible = r.left > r.remainingInPlan;
+                const reach = predictThresholdReachDate(r.subj, 75);
+                const statusCls = done ? 'text-emerald-400' : impossible ? 'text-red-400' : 'text-amber-400';
+                const statusText = done ? 'Reached' : impossible ? `Need ${r.left} (tight)` : `${r.left} left`;
+                return `
+                    <div class="bg-dark-700 rounded-xl px-3 py-2.5">
+                        <div class="flex items-center justify-between text-[10px]">
+                            <span class="font-semibold">${r.subj}</span>
+                            <span class="${statusCls} font-medium">${statusText}</span>
+                        </div>
+                        <p class="text-[9px] text-gray-500 mt-1">Attended ${r.attended}/${r.requiredAttended} needed • Rule total: ${r.totalRequiredClasses} classes</p>
+                        <p class="text-[9px] text-blue-300 mt-1">Reach date: ${reach.message}</p>
+                    </div>
+                `;
+            }).join('');
+
+            const totalLeft = rows.reduce((sum, r) => sum + r.left, 0);
+            const closest = rows.slice().sort((a, b) => a.left - b.left)[0];
+            const toughest = rows.slice().sort((a, b) => b.left - a.left)[0];
+
+            document.getElementById('tLeftTotal').textContent = totalLeft;
+            document.getElementById('tClosest').textContent = closest ? `${closest.subj} (${closest.left})` : '-';
+            document.getElementById('tToughest').textContent = toughest ? `${toughest.subj} (${toughest.left})` : '-';
+        }
+
+        function renderSyncStatus() {
+            const pendingEl = document.getElementById('syncPending');
+            const lastEl = document.getElementById('syncLast');
+            const retryEl = document.getElementById('syncRetry');
+            const badgeEl = document.getElementById('syncBadge');
+            const historyEl = document.getElementById('syncHistory');
+            if (!pendingEl || !lastEl || !retryEl || !badgeEl || !historyEl) return;
+
+            pendingEl.textContent = syncState.pendingWrites;
+            retryEl.textContent = syncState.retryQueue.length;
+            lastEl.textContent = syncState.lastSynced ? new Date(syncState.lastSynced).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-';
+
+            if (!isOnline) {
+                badgeEl.textContent = 'Offline';
+                badgeEl.className = 'badge badge-warning';
+            } else if (syncState.pendingWrites > 0) {
+                badgeEl.textContent = 'Syncing';
+                badgeEl.className = 'badge badge-info';
+            } else if (syncState.retryQueue.length > 0) {
+                badgeEl.textContent = 'Retry Needed';
+                badgeEl.className = 'badge badge-danger';
+            } else {
+                badgeEl.textContent = 'Healthy';
+                badgeEl.className = 'badge badge-success';
+            }
+
+            historyEl.innerHTML = syncState.history.length
+                ? syncState.history.slice(0, 8).map(item => {
+                    const color = item.status === 'ok' ? 'text-emerald-300' : item.status === 'fail' ? 'text-red-300' : 'text-blue-300';
+                    const ts = new Date(item.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    return `<div class="text-[9px] bg-dark-700 rounded-lg px-2 py-1.5 flex items-center justify-between"><span class="${color}">${item.action}</span><span class="text-gray-500">${ts}</span></div>`;
+                }).join('')
+                : '<p class="text-[10px] text-gray-500">No sync activity yet</p>';
+        }
+
+        function renderSafeBunkPlanner() {
+            const box = document.getElementById('safeBunkPlanner');
+            if (!box) return;
+            const target = (data.targetPct || 75) / 100;
+            const remainingBunks = {};
+            SUBJECTS.forEach(s => {
+                const d = data.att[s] || { a: 0, h: 0 };
+                const can = d.h > 0 && (d.a / d.h) >= target ? Math.max(0, Math.floor((d.a - target * d.h) / target)) : 0;
+                remainingBunks[s] = can;
+            });
+
+            const rows = [];
+            const cursor = new Date();
+            for (let i = 1; i <= 35; i++) {
+                cursor.setDate(cursor.getDate() + 1);
+                const id = toId(cursor);
+                const classes = getSched(id).subjs || [];
+                if (!classes.length) continue;
+                const counts = {};
+                classes.forEach(s => counts[s] = (counts[s] || 0) + 1);
+                const safe = Object.entries(counts).filter(([s, c]) => (remainingBunks[s] || 0) >= c).map(([s, c]) => ({ s, c }));
+                if (!safe.length) continue;
+                safe.forEach(({ s, c }) => { remainingBunks[s] -= c; });
+                rows.push({ id, safe: safe.map(x => x.s) });
+                if (rows.length >= 14) break;
+            }
+
+            if (!rows.length) {
+                box.innerHTML = '<p class="text-[10px] text-gray-500">No safe bunk windows available in upcoming dates.</p>';
+                return;
+            }
+
+            box.innerHTML = rows.map(r => `
+                <div class="bg-dark-700 rounded-xl px-3 py-2.5">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-[10px] font-semibold">${short(r.id)}</span>
+                        <span class="badge badge-success">Safe</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1">${r.safe.map(s => `<span class="badge badge-info">${s}</span>`).join('')}</div>
+                </div>
+            `).join('');
         }
         
         function renderSubj() {
@@ -1744,7 +2015,7 @@
                         </div>
                         <div class="mt-1 text-[9px] text-gray-500 flex justify-between">
                             <span>${CREDITS[s]} credits</span>
-                            <span>${classesNeededForTarget(s, 75) ? `Need ${classesNeededForTarget(s, 75)} for 75%` : '75% safe'}</span>
+                            <span>${classesLeftForCreditThreshold(s, 75).left ? `Need ${classesLeftForCreditThreshold(s, 75).left} for 75%` : '75% safe'}</span>
                         </div>
                     </div>`;
             }).join('');
@@ -1826,13 +2097,13 @@
             const weekTotal = weekP + weekA;
             const weekPct = weekTotal ? Math.round(weekP / weekTotal * 100) : 100;
             document.getElementById('iWeek').innerHTML = weekTotal 
-                ? `<span class="badge ${weekPct >= 75 ? 'badge-success' : 'badge-danger'}">${weekPct}%</span> ${weekP}/${weekTotal} classes`
+                ? `<span class="badge ${weekPct >= targetPct ? 'badge-success' : 'badge-danger'}">${weekPct}%</span> ${weekP}/${weekTotal} classes`
                 : '<span class="text-gray-500">No classes this week</span>';
 
             // By day
             document.getElementById('iByDay').innerHTML = DAYS.filter(d => byDay[d].t > 0).map(d => {
                 const pct = Math.round(byDay[d].p / byDay[d].t * 100);
-                return `<span class="text-gray-400">${d.slice(0,3)}: <span class="${pct >= 75 ? 'text-emerald-400' : 'text-red-400'}">${pct}%</span></span>`;
+                return `<span class="text-gray-400">${d.slice(0,3)}: <span class="${pct >= targetPct ? 'text-emerald-400' : 'text-red-400'}">${pct}%</span></span>`;
             }).join(' • ') || '<span class="text-gray-500">No data yet</span>';
         }
 
@@ -2008,8 +2279,8 @@
             document.getElementById('sdAtt').textContent = d.a;
             document.getElementById('sdAbs').textContent = absDates.length;
             document.getElementById('sdCan').textContent = canDates.length;
-            const need75 = classesNeededForTarget(subj, 75);
-            document.getElementById('sdMeta').textContent = `Credits: ${CREDITS[subj]} • Class Limit: ${LIMITS[subj]} • ${need75 ? `Need ${need75} more for 75%` : 'Already safe for 75%'}`;
+            const threshold = classesLeftForCreditThreshold(subj, 75);
+            document.getElementById('sdMeta').textContent = `Credits: ${CREDITS[subj]} • Rule total: ${threshold.totalRequiredClasses} • ${threshold.left ? `Need ${threshold.left} more for 75%` : 'Already safe for 75%'}`;
             
             document.getElementById('sdAbsDates').innerHTML = absDates.length 
                 ? absDates.slice(0, 8).map(id => `<span class="badge badge-danger">${short(id)}</span>`).join('') + (absDates.length > 8 ? `<span class="badge">+${absDates.length-8}</span>` : '')
@@ -2227,6 +2498,11 @@
                 result.innerHTML = `<p class="text-emerald-400">✓ You're already at ${currentPct}%!</p>`;
             } else {
                 const needed = Math.ceil((target / 100 * d.h - d.a) / (1 - target / 100));
+                if (!Number.isFinite(needed) || needed < 0) {
+                    result.innerHTML = `<p class="text-amber-400">Target ${target}% is too high for a finite class estimate right now.</p>`;
+                    result.classList.remove('hidden');
+                    return;
+                }
                 result.innerHTML = `
                     <div class="bg-dark-600 rounded-lg p-2.5">
                         <p class="text-gray-400 mb-1">Current: <span class="text-white font-bold">${currentPct}%</span></p>
@@ -2292,6 +2568,7 @@
             const newH = d.h + attend + miss;
             const currentPct = d.h ? (d.a / d.h * 100).toFixed(1) : 100;
             const newPct = newH ? (newA / newH * 100).toFixed(1) : 100;
+            const target = data.targetPct || 75;
             
             result.innerHTML = `
                 <div class="bg-dark-600 rounded-lg p-2.5">
@@ -2301,7 +2578,7 @@
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-400">After:</span>
-                        <span class="font-bold ${parseFloat(newPct) >= 75 ? 'text-emerald-400' : 'text-red-400'}">${newPct}%</span>
+                        <span class="font-bold ${parseFloat(newPct) >= target ? 'text-emerald-400' : 'text-red-400'}">${newPct}%</span>
                     </div>
                     <p class="text-[9px] text-gray-500 mt-1">${newA}/${newH} classes</p>
                 </div>
@@ -2425,14 +2702,15 @@
                 const pct = d.h ? Math.round(d.a / d.h * 100) : 100;
                 const date = new Date(month + '-01');
                 const name = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                const target = data.targetPct || 75;
                 return `
                     <div class="bg-dark-700 rounded-xl p-3">
                         <div class="flex justify-between items-center mb-1.5">
                             <span class="text-[11px] font-medium">${name}</span>
-                            <span class="text-sm font-bold ${pct >= 75 ? 'text-emerald-400' : 'text-red-400'}">${pct}%</span>
+                            <span class="text-sm font-bold ${pct >= target ? 'text-emerald-400' : 'text-red-400'}">${pct}%</span>
                         </div>
                         <div class="progress-bar">
-                            <div class="progress-bar-fill ${pct >= 75 ? 'bg-emerald-500' : 'bg-red-500'}" style="width:${pct}%"></div>
+                            <div class="progress-bar-fill ${pct >= target ? 'bg-emerald-500' : 'bg-red-500'}" style="width:${pct}%"></div>
                         </div>
                         <p class="text-[9px] text-gray-500 mt-1">${d.a}/${d.h} classes</p>
                     </div>
@@ -2452,6 +2730,7 @@
 
         function renderPredictions() {
             const list = document.getElementById('predList');
+            const target = data.targetPct || 75;
             const predictions = SUBJECTS.map(s => {
                 const d = data.att[s] || { a: 0, h: 0 };
                 const current = d.h ? (d.a / d.h * 100).toFixed(1) : 100;
@@ -2467,8 +2746,8 @@
                         <span class="text-[10px] text-gray-500">Now: <span class="font-bold">${p.current}%</span></span>
                     </div>
                     <div class="flex gap-2 text-[10px]">
-                        <span class="flex-1 text-center py-1.5 rounded-lg ${parseFloat(p.pct5) >= 75 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}">+5: ${p.pct5}%</span>
-                        <span class="flex-1 text-center py-1.5 rounded-lg ${parseFloat(p.pct10) >= 75 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}">+10: ${p.pct10}%</span>
+                        <span class="flex-1 text-center py-1.5 rounded-lg ${parseFloat(p.pct5) >= target ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}">+5: ${p.pct5}%</span>
+                        <span class="flex-1 text-center py-1.5 rounded-lg ${parseFloat(p.pct10) >= target ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}">+10: ${p.pct10}%</span>
                     </div>
                 </div>
             `).join('');
@@ -2486,6 +2765,7 @@
 
         function renderProjection() {
             const list = document.getElementById('projList');
+            const target = data.targetPct || 75;
             
             list.innerHTML = SUBJECTS.map(s => {
                 const d = data.att[s] || { a: 0, h: 0 };
@@ -2498,7 +2778,7 @@
                                 <span class="text-[11px] font-semibold">${s}</span>
                                 <span class="badge badge-info">Complete</span>
                             </div>
-                            <p class="text-[10px] text-gray-400 mt-1">Final: <span class="${parseFloat(finalPct) >= 75 ? 'text-emerald-400' : 'text-red-400'} font-bold">${finalPct}%</span></p>
+                            <p class="text-[10px] text-gray-400 mt-1">Final: <span class="${parseFloat(finalPct) >= target ? 'text-emerald-400' : 'text-red-400'} font-bold">${finalPct}%</span></p>
                         </div>
                     `;
                 }
@@ -2530,6 +2810,130 @@
             }).join('');
         }
 
+        function toggleTrendForecast() {
+            const b = document.getElementById('trendBox');
+            b.classList.toggle('hidden');
+            document.getElementById('trendToggle').textContent = b.classList.contains('hidden') ? 'Show' : 'Hide';
+            if (!b.classList.contains('hidden')) renderTrendForecast();
+        }
+
+        function renderTrendForecast() {
+            const list = document.getElementById('trendForecastList');
+            if (!list) return;
+            const target = data.targetPct || 75;
+
+            list.innerHTML = SUBJECTS.map(s => {
+                const d = data.att[s] || { a: 0, h: 0 };
+                const remaining = Math.max(0, LIMITS[s] - d.h);
+                const baseRate = d.h > 0 ? d.a / d.h : 1;
+                const sample = Math.max(1, d.h);
+                const margin = Math.min(0.18, 1 / Math.sqrt(sample));
+                const likelyRate = Math.max(0, Math.min(1, baseRate));
+                const bestRate = Math.max(0, Math.min(1, likelyRate + margin));
+                const worstRate = Math.max(0, Math.min(1, likelyRate - margin));
+
+                const likelyPct = ((d.a + Math.round(remaining * likelyRate)) / LIMITS[s] * 100).toFixed(1);
+                const bestPct = ((d.a + Math.round(remaining * bestRate)) / LIMITS[s] * 100).toFixed(1);
+                const worstPct = ((d.a + Math.round(remaining * worstRate)) / LIMITS[s] * 100).toFixed(1);
+
+                return `
+                    <div class="bg-dark-700 rounded-xl px-3 py-2.5">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-[11px] font-semibold">${s}</span>
+                            <span class="text-[9px] text-gray-500">Confidence ±${Math.round(margin * 100)}%</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-1 text-[9px]">
+                            <span class="text-center py-1 rounded bg-emerald-500/20 text-emerald-400">Best ${bestPct}%</span>
+                            <span class="text-center py-1 rounded bg-blue-500/20 ${parseFloat(likelyPct) >= target ? 'text-blue-300' : 'text-amber-300'}">Likely ${likelyPct}%</span>
+                            <span class="text-center py-1 rounded bg-red-500/20 text-red-300">Worst ${worstPct}%</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function toggleRecoveryPlan() {
+            const b = document.getElementById('recoveryBox');
+            b.classList.toggle('hidden');
+            document.getElementById('recoveryToggle').textContent = b.classList.contains('hidden') ? 'Show' : 'Hide';
+            if (!b.classList.contains('hidden')) renderRecoveryPlan();
+        }
+
+        function renderRecoveryPlan() {
+            const box = document.getElementById('recoveryPlanList');
+            if (!box) return;
+            const target = (data.targetPct || 75) / 100;
+            const plans = [];
+
+            SUBJECTS.forEach(subj => {
+                const d = data.att[subj] || { a: 0, h: 0 };
+                const remaining = Math.max(0, LIMITS[subj] - d.h);
+                if (remaining <= 0) return;
+                const needed = Math.max(0, Math.ceil(target * LIMITS[subj] - d.a));
+                if (needed <= 0) return;
+
+                const weeklySlots = [];
+                const cursor = new Date();
+                for (let w = 0; w < 6; w++) {
+                    let weekSlots = 0;
+                    const from = new Date(cursor);
+                    from.setDate(from.getDate() + w * 7 + 1);
+                    const to = new Date(from);
+                    to.setDate(to.getDate() + 6);
+                    const dayPtr = new Date(from);
+                    while (dayPtr <= to) {
+                        const id = toId(dayPtr);
+                        weekSlots += (getSched(id).subjs || []).filter(s => s === subj).length;
+                        dayPtr.setDate(dayPtr.getDate() + 1);
+                    }
+                    weeklySlots.push({ from: toId(from), to: toId(to), slots: weekSlots });
+                }
+
+                let remainingNeed = needed;
+                const planRows = weeklySlots.map((w, idx) => {
+                    const activeWeeks = weeklySlots.slice(idx).filter(x => x.slots > 0).length || 1;
+                    const req = w.slots > 0 ? Math.min(w.slots, Math.ceil(remainingNeed / activeWeeks)) : 0;
+                    remainingNeed = Math.max(0, remainingNeed - req);
+                    return { ...w, req };
+                });
+
+                plans.push({ subj, needed, remaining, planRows, unresolved: remainingNeed });
+            });
+
+            if (!plans.length) {
+                box.innerHTML = '<p class="text-[10px] text-emerald-400">No recovery needed. You are on track.</p>';
+                return;
+            }
+
+            box.innerHTML = plans.map(p => `
+                <div class="bg-dark-700 rounded-xl p-2.5">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[11px] font-semibold">${p.subj}</span>
+                        <span class="text-[9px] ${p.unresolved ? 'text-red-300' : 'text-emerald-300'}">Need ${p.needed}/${p.remaining} remaining classes</span>
+                    </div>
+                    <div class="space-y-1">${p.planRows.map((r, i) => `<div class="text-[9px] flex justify-between"><span>Week ${i + 1} (${short(r.from)} - ${short(r.to)})</span><span class="${r.req ? 'text-amber-300' : 'text-gray-500'}">Attend ${r.req}/${r.slots}</span></div>`).join('')}</div>
+                </div>
+            `).join('');
+        }
+
+        function collectEventConflicts(id, type, follows) {
+            const warnings = [];
+            const existing = data.cal[id];
+            const log = data.logs[id];
+            const currentClasses = (log?.classes || []).filter(c => c.status === 'P' || c.status === 'A').length;
+
+            if ((type === 'holiday' || type === 'exam') && currentClasses > 0) {
+                warnings.push(`This day has ${currentClasses} logged attended/absent classes that may be cleared by holiday/exam timetable.`);
+            }
+            if (type === 'exchange' && (!Array.isArray(SCHED[follows]) || SCHED[follows].length === 0)) {
+                warnings.push(`Selected exchange day (${DAYS[follows]}) currently has no classes in timetable.`);
+            }
+            if (existing && existing.type !== type) {
+                warnings.push(`Replacing existing ${existing.type.toUpperCase()} event.`);
+            }
+            return warnings;
+        }
+
         // =====================================================================
         // CALENDAR EVENTS
         // =====================================================================
@@ -2545,6 +2949,10 @@
             if (!['holiday', 'exam', 'exchange', 'halfday'].includes(type)) { toast('❌ Invalid event type'); return; }
             const ev = { type, name };
             if (type === 'exchange') ev.follows = Math.max(0, Math.min(6, parseInt(document.getElementById('evFollow').value, 10) || 0));
+            const warnings = collectEventConflicts(id, type, ev.follows);
+            if (warnings.length && !confirm(`Possible timetable conflicts:\n\n- ${warnings.join('\n- ')}\n\nSave anyway?`)) {
+                return;
+            }
             data.cal[id] = ev;
             showLoading('Saving...');
             await saveData();
@@ -2753,7 +3161,7 @@
                         <input value="${esc(row.name)}" onchange="setSubjectField(${i}, 'name', this.value)" placeholder="Name" class="col-span-3 px-2 py-1.5 rounded-lg bg-dark-500 border border-dark-500 text-[10px] focus:outline-none focus:border-cyan-500">
                         <input type="number" step="0.5" min="0" value="${row.credits ?? 0}" onchange="setSubjectField(${i}, 'credits', this.value)" placeholder="Credits" class="col-span-1 px-2 py-1.5 rounded-lg bg-dark-500 border border-dark-500 text-[10px] text-center focus:outline-none focus:border-cyan-500">
                         <input type="number" min="1" value="${row.limit ?? 1}" onchange="setSubjectField(${i}, 'limit', this.value)" placeholder="Limit" class="col-span-1 px-2 py-1.5 rounded-lg bg-dark-500 border border-dark-500 text-[10px] text-center focus:outline-none focus:border-cyan-500">
-                        <span class="col-span-3 text-[9px] text-gray-300 px-2">${normalizeCode(row.code) ? (classesNeededForTarget(normalizeCode(row.code), 75) ? `${classesNeededForTarget(normalizeCode(row.code), 75)} needed` : 'Safe') : '-'}</span>
+                        <span class="col-span-3 text-[9px] text-gray-300 px-2">${normalizeCode(row.code) ? thresholdLeftForCodeAndCredits(normalizeCode(row.code), row.credits) : '-'}</span>
                         <label class="col-span-1 text-[10px] text-gray-400 flex items-center justify-center gap-1 cursor-pointer">
                             <input type="checkbox" ${row.isLab ? 'checked' : ''} onchange="setSubjectField(${i}, 'isLab', this.checked)" class="w-3.5 h-3.5 rounded bg-dark-500 border-dark-500 text-cyan-500 focus:ring-cyan-500">
                             L
@@ -2773,6 +3181,16 @@
             `).join('');
         }
 
+        function thresholdLeftForCodeAndCredits(code, credits) {
+            const normalized = normalizeCode(code);
+            if (!normalized) return '-';
+            const totalRequiredClasses = creditRuleTotalClasses(Math.max(0, parseFloat(credits) || 0));
+            const requiredAttended = Math.ceil(totalRequiredClasses * 0.75);
+            const attended = data.att[normalized]?.a || 0;
+            const left = Math.max(0, requiredAttended - attended);
+            return left ? `${left} needed` : 'Safe';
+        }
+
         function renderNeed75Preview() {
             const box = document.getElementById('need75Preview');
             const rows = tempSubjectRows.map(r => ({ ...r, code: normalizeCode(r.code) })).filter(r => r.code);
@@ -2782,10 +3200,8 @@
             }
 
             box.innerHTML = rows.map(r => {
-                const d = data.att[r.code] || { a: 0, h: 0 };
-                const need = classesNeededForTarget(r.code, 75);
-                const pct = d.h ? Math.round(d.a / d.h * 100) : null;
-                return `<span class="inline-flex items-center gap-1 mr-2 mb-1 px-2 py-1 rounded-lg bg-dark-600 ${need ? 'text-amber-300' : 'text-emerald-300'}">${r.code}: ${pct === null ? 'No classes yet' : (need ? `${need} needed` : `${pct}% safe`)}</span>`;
+                const threshold = classesLeftForCreditThreshold(r.code, 75);
+                return `<span class="inline-flex items-center gap-1 mr-2 mb-1 px-2 py-1 rounded-lg bg-dark-600 ${threshold.left ? 'text-amber-300' : 'text-emerald-300'}">${r.code}: ${threshold.left ? `${threshold.left} left` : '75% reached'}</span>`;
             }).join('');
         }
 
@@ -2818,6 +3234,16 @@
             const normalizedSchedule = {};
             for (let i = 0; i < 7; i++) {
                 normalizedSchedule[i] = (tempSchedule[i] || []).map(normalizeCode).filter(code => seen.has(code));
+            }
+
+            const exchangeWarnings = Object.entries(data.cal || {})
+                .filter(([_, ev]) => ev?.type === 'exchange')
+                .map(([id, ev]) => ({ id, follows: ev.follows }))
+                .filter(item => !Array.isArray(normalizedSchedule[item.follows]) || normalizedSchedule[item.follows].length === 0)
+                .map(item => `${short(item.id)} follows ${DAYS[item.follows]} which has no classes in updated schedule`);
+
+            if (exchangeWarnings.length && !confirm(`Schedule conflicts detected:\n\n- ${exchangeWarnings.join('\n- ')}\n\nSave subjects anyway?`)) {
+                return;
             }
 
             showLoading('Saving subjects...');
@@ -3162,39 +3588,6 @@
             hideLoading();
             toast(`✓ ${bulkSet.size} days marked absent`); 
             bulkSet.clear();
-        }
-
-        // =====================================================================
-        // KEYBOARD SHORTCUTS
-        // =====================================================================
-        function toggleShortcuts() {
-            const b = document.getElementById('shortcutsBox');
-            b.classList.toggle('hidden');
-            document.getElementById('shortcutsToggle').textContent = b.classList.contains('hidden') ? 'Show' : 'Hide';
-        }
-
-        document.addEventListener('keydown', (e) => {
-            if (document.querySelector('[id^="modal"]:not(.hidden)') || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-                if (e.key === 'Escape') closeAllModals();
-                return;
-            }
-            
-            switch(e.key.toLowerCase()) {
-                case 't': goToday(); break;
-                case 'c': openCalculator(); break;
-                case 'e': openCal(); break;
-                case 's': openSettings(); break;
-                case 'h': openHeatmap(); break;
-                case 'w': openWhatIf(); break;
-                case 'm': openSubjects(); break;
-                case 'arrowleft': chgMonth(-1); break;
-                case 'arrowright': chgMonth(1); break;
-                case 'escape': closeAllModals(); break;
-            }
-        });
-
-        function closeAllModals() {
-            document.querySelectorAll('[id^="modal"]').forEach(m => m.classList.add('hidden'));
         }
 
         // =====================================================================
