@@ -137,6 +137,15 @@
             header .max-w-lg { gap: 0.45rem; }
             header .max-w-lg > div:last-child { gap: 0.1rem; }
             .tooltip { display: none; }
+            #modalSubjects { padding: 0.35rem; align-items: flex-end; }
+            #modalSubjects .modal-content { max-height: 92vh; border-radius: 16px 16px 10px 10px; padding: 0.7rem; }
+            #modalSubjects #subjectsTable .subject-row { padding: 0.55rem; }
+            #modalSubjects #subjectsTable .subject-row input,
+            #modalSubjects #subjectsTable .subject-row button,
+            #modalSubjects #subjectsTable .subject-row label { min-height: 34px; }
+            #modalSubjects #scheduleEditor .sched-row { align-items: flex-start; }
+            #modalSubjects #scheduleEditor .sched-day { width: 44px; padding-top: 0.45rem; }
+            #modalSubjects #subjectActions { position: sticky; bottom: 0; background: linear-gradient(to top, rgba(8, 8, 12, 0.95), rgba(8, 8, 12, 0.72)); padding-top: 0.5rem; }
         }
     </style>
 </head>
@@ -987,6 +996,9 @@
                 <div class="bg-dark-700 rounded-xl p-3">
                     <p class="text-[10px] font-medium mb-2">Backup & Restore</p>
                     <div class="space-y-2">
+                        <button onclick="createSnapshot()" class="w-full py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-[10px] btn flex items-center justify-center gap-2">
+                            <span>🕒</span> Save Snapshot (One-click)
+                        </button>
                         <button onclick="backupData()" class="w-full py-2 rounded-lg bg-dark-600 hover:bg-dark-500 text-[10px] btn flex items-center justify-center gap-2">
                             <span>📦</span> Export Backup
                         </button>
@@ -994,6 +1006,13 @@
                             <span>📥</span> Import Backup
                             <input type="file" id="importFile" accept=".json" onchange="importData(event)" class="hidden">
                         </label>
+                    </div>
+                    <div class="mt-2">
+                        <div class="flex items-center justify-between mb-1">
+                            <p class="text-[9px] text-gray-400">Snapshot History</p>
+                            <span id="snapshotCount" class="text-[9px] text-gray-500">0</span>
+                        </div>
+                        <div id="backupHistoryList" class="space-y-1.5 max-h-36 overflow-y-auto hide-scroll"></div>
                     </div>
                 </div>
 
@@ -1042,7 +1061,7 @@
             <div class="bg-dark-700 rounded-xl p-3 mb-3">
                 <div class="flex items-center justify-between mb-2">
                     <p class="text-[10px] font-medium">Weekly Schedule</p>
-                    <span class="text-[9px] text-gray-500">Drag & drop (comma input kept as backup)</span>
+                    <span class="text-[9px] text-gray-500">Drag & drop + optional times (OS@09:00)</span>
                 </div>
                 <div id="scheduleDnD" class="mb-2"></div>
                 <div id="scheduleEditor" class="space-y-1.5"></div>
@@ -1053,7 +1072,7 @@
                 <div id="need75Preview" class="text-[10px] text-gray-400"></div>
             </div>
 
-            <div class="flex gap-2">
+            <div id="subjectActions" class="flex gap-2">
                 <button onclick="closeSubjects()" class="flex-1 py-2.5 rounded-xl bg-dark-600 text-xs btn">Cancel</button>
                 <button onclick="saveSubjects()" class="flex-1 py-2.5 rounded-xl bg-cyan-500 text-xs font-medium btn">Save Subjects</button>
             </div>
@@ -1175,11 +1194,11 @@
         // =====================================================================
         // STATE
         // =====================================================================
-        let user = null, data = { att: {}, logs: {}, cal: {}, semStart: null, semEnd: null, notes: {}, bestStreak: 0, targetPct: 75, subjectMeta: null, schedule: null, explored: false, backedUp: false, autoFillMissedEnabled: true, autoFillWindowDays: 90 };
+        let user = null, data = { att: {}, logs: {}, cal: {}, semStart: null, semEnd: null, notes: {}, bestStreak: 0, targetPct: 75, subjectMeta: null, schedule: null, scheduleTimes: null, explored: false, backedUp: false, autoFillMissedEnabled: true, autoFillWindowDays: 90 };
         let selDate = null, selClasses = [];
         let curMonth = new Date(), subjExp = false, dirty = false, bulkSet = new Set();
         let tempClasses = [];
-        let tempSubjectRows = [], tempSchedule = {};
+        let tempSubjectRows = [], tempSchedule = {}, tempScheduleTimes = {};
         let isOnline = navigator.onLine;
 
         // =====================================================================
@@ -1193,6 +1212,19 @@
         const esc = s => String(s || '').replace(/[&<>'"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[ch]));
         const sanitizeText = (s, max = 80) => String(s || '').replace(/[<>`]/g, '').replace(/\s+/g, ' ').trim().slice(0, max);
         const normalizeCode = c => String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+        const normalizeSlotTime = value => {
+            const raw = String(value || '').trim();
+            if (!raw) return '';
+            const m = raw.match(/^(\d{1,2})(?::?(\d{1,2}))?\s*([ap]m)?$/i);
+            if (!m) return sanitizeText(raw, 12);
+            let hh = parseInt(m[1], 10);
+            let mm = m[2] ? parseInt(m[2], 10) : 0;
+            const ap = (m[3] || '').toLowerCase();
+            if (Number.isNaN(hh) || Number.isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return sanitizeText(raw, 12);
+            if (ap === 'pm' && hh < 12) hh += 12;
+            if (ap === 'am' && hh === 12) hh = 0;
+            return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+        };
         const csvEscape = v => `"${String(v ?? '').replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`;
         const toast = m => { const t = document.getElementById('toast'); t.textContent = m; t.classList.remove('translate-y-8', 'opacity-0'); setTimeout(() => t.classList.add('translate-y-8', 'opacity-0'), 2500); };
         const showLoading = (t = 'Loading...') => { document.getElementById('loadingText').textContent = t; document.getElementById('loading').classList.remove('hidden'); };
@@ -1246,12 +1278,17 @@
 
             const incomingSchedule = data.schedule && typeof data.schedule === 'object' ? data.schedule : DEFAULT_SCHED;
             const normalizedSchedule = {};
+            const incomingScheduleTimes = data.scheduleTimes && typeof data.scheduleTimes === 'object' ? data.scheduleTimes : {};
+            const normalizedTimes = {};
             for (let i = 0; i < 7; i++) {
                 const row = Array.isArray(incomingSchedule[i]) ? incomingSchedule[i] : [];
                 normalizedSchedule[i] = row.map(normalizeCode).filter(code => !!meta[code]);
+                const rowTimes = Array.isArray(incomingScheduleTimes[i]) ? incomingScheduleTimes[i] : [];
+                normalizedTimes[i] = normalizedSchedule[i].map((_, idx) => normalizeSlotTime(rowTimes[idx] || ''));
             }
             SCHED = normalizedSchedule;
             data.schedule = clone(normalizedSchedule);
+            data.scheduleTimes = clone(normalizedTimes);
             data.subjectMeta = SUBJECTS.map(code => ({
                 code,
                 name: NAMES[code],
@@ -1395,6 +1432,7 @@
                 targetPct: 75,
                 subjectMeta: clone(data.subjectMeta),
                 schedule: clone(data.schedule),
+                scheduleTimes: clone(data.scheduleTimes),
                 explored: false,
                 backedUp: false,
                 autoFillMissedEnabled: true,
@@ -1418,6 +1456,7 @@
             if (typeof data.backedUp !== 'boolean') data.backedUp = false;
             if (typeof data.autoFillMissedEnabled !== 'boolean') data.autoFillMissedEnabled = true;
             data.autoFillWindowDays = [30, 90, 180, 365].includes(parseInt(data.autoFillWindowDays, 10)) ? parseInt(data.autoFillWindowDays, 10) : 90;
+            if (!data.scheduleTimes || typeof data.scheduleTimes !== 'object') data.scheduleTimes = {};
             syncSubjectConfig();
             const logs = await db.collection('att_users').doc(user.uid).collection('logs').get();
             data.logs = {}; logs.forEach(d => data.logs[d.id] = d.data());
@@ -1443,6 +1482,7 @@
                 targetPct: data.targetPct || 75,
                 subjectMeta: clone(data.subjectMeta),
                 schedule: clone(data.schedule),
+                scheduleTimes: clone(data.scheduleTimes),
                 explored: !!data.explored,
                 backedUp: !!data.backedUp,
                 autoFillMissedEnabled: data.autoFillMissedEnabled !== false,
@@ -2260,6 +2300,7 @@
             const grid = document.getElementById('scheduleGrid');
             grid.innerHTML = DAYS.map((day, i) => {
                 const subjs = SCHED[i] || [];
+                const times = data.scheduleTimes?.[i] || [];
                 return `
                     <div class="bg-dark-700 rounded-xl p-3">
                         <div class="flex justify-between items-center mb-2">
@@ -2267,7 +2308,10 @@
                             <span class="text-[9px] text-gray-500">${subjs.length} classes</span>
                         </div>
                         <div class="flex flex-wrap gap-1">
-                            ${subjs.length ? subjs.map(s => `<span class="badge ${LABS.includes(s) ? 'badge-purple' : 'badge-info'}">${s}</span>`).join('') : '<span class="text-[10px] text-gray-500">Holiday</span>'}
+                            ${subjs.length ? subjs.map((s, idx) => {
+                                const t = normalizeSlotTime(times[idx] || '');
+                                return `<span class="badge ${LABS.includes(s) ? 'badge-purple' : 'badge-info'}">${s}${t ? ` • ${t}` : ''}</span>`;
+                            }).join('') : '<span class="text-[10px] text-gray-500">Holiday</span>'}
                         </div>
                     </div>
                 `;
@@ -2984,6 +3028,7 @@
             document.getElementById('targetPct').value = data.targetPct || 75;
             document.getElementById('autoFillEnabled').checked = data.autoFillMissedEnabled !== false;
             document.getElementById('autoFillWindow').value = String([30, 90, 180, 365].includes(parseInt(data.autoFillWindowDays, 10)) ? parseInt(data.autoFillWindowDays, 10) : 90);
+            renderBackupHistory();
             document.getElementById('modalSettings').classList.remove('hidden');
         }
         function closeSettings() { document.getElementById('modalSettings').classList.add('hidden'); }
@@ -3030,6 +3075,7 @@
             markExplored();
             tempSubjectRows = clone(data.subjectMeta || getDefaultSubjectList());
             tempSchedule = clone(data.schedule || DEFAULT_SCHED);
+            tempScheduleTimes = clone(data.scheduleTimes || {});
             renderSubjectsEditor();
             renderNeed75Preview();
             document.getElementById('modalSettings').classList.add('hidden');
@@ -3060,7 +3106,25 @@
         }
 
         function setScheduleDay(day, value) {
-            tempSchedule[day] = String(value || '').split(',').map(v => normalizeCode(v)).filter(Boolean);
+            const entries = String(value || '').split(',').map(v => v.trim()).filter(Boolean);
+            const codes = [];
+            const times = [];
+            entries.forEach(entry => {
+                const [rawCode, rawTime] = entry.split('@');
+                const code = normalizeCode(rawCode);
+                if (!code) return;
+                codes.push(code);
+                times.push(normalizeSlotTime(rawTime || ''));
+            });
+            tempSchedule[day] = codes;
+            tempScheduleTimes[day] = times;
+            renderScheduleDnD();
+        }
+
+        function setScheduleTime(day, idx, value) {
+            if (!tempSchedule[day]) tempSchedule[day] = [];
+            if (!tempScheduleTimes[day]) tempScheduleTimes[day] = [];
+            tempScheduleTimes[day][idx] = normalizeSlotTime(value);
             renderScheduleDnD();
         }
 
@@ -3068,9 +3132,9 @@
             event.preventDefault();
         }
 
-        function scheduleDragStart(event, code, fromDay = -1, index = -1) {
+        function scheduleDragStart(event, code, fromDay = -1, index = -1, time = '') {
             event.dataTransfer.effectAllowed = 'move';
-            event.dataTransfer.setData('text/plain', JSON.stringify({ code, fromDay, index }));
+            event.dataTransfer.setData('text/plain', JSON.stringify({ code, fromDay, index, time }));
         }
 
         function dropToDay(event, day) {
@@ -3081,12 +3145,19 @@
                 if (!code) return;
                 if (Number.isInteger(payload.fromDay) && payload.fromDay >= 0 && payload.fromDay <= 6) {
                     const src = tempSchedule[payload.fromDay] || [];
+                    const srcTimes = tempScheduleTimes[payload.fromDay] || [];
                     const idx = Number.isInteger(payload.index) ? payload.index : src.lastIndexOf(code);
-                    if (idx >= 0) src.splice(idx, 1);
+                    if (idx >= 0) {
+                        src.splice(idx, 1);
+                        srcTimes.splice(idx, 1);
+                    }
                     tempSchedule[payload.fromDay] = src;
+                    tempScheduleTimes[payload.fromDay] = srcTimes;
                 }
                 if (!tempSchedule[day]) tempSchedule[day] = [];
+                if (!tempScheduleTimes[day]) tempScheduleTimes[day] = [];
                 tempSchedule[day].push(code);
+                tempScheduleTimes[day].push(normalizeSlotTime(payload.time || ''));
                 renderSubjectsEditor();
             } catch (_) {}
         }
@@ -3098,9 +3169,14 @@
                 if (!Number.isInteger(payload.fromDay) || payload.fromDay < 0 || payload.fromDay > 6) return;
                 const code = normalizeCode(payload.code);
                 const src = tempSchedule[payload.fromDay] || [];
+                const srcTimes = tempScheduleTimes[payload.fromDay] || [];
                 const idx = Number.isInteger(payload.index) ? payload.index : src.lastIndexOf(code);
-                if (idx >= 0) src.splice(idx, 1);
+                if (idx >= 0) {
+                    src.splice(idx, 1);
+                    srcTimes.splice(idx, 1);
+                }
                 tempSchedule[payload.fromDay] = src;
+                tempScheduleTimes[payload.fromDay] = srcTimes;
                 renderSubjectsEditor();
             } catch (_) {}
         }
@@ -3108,6 +3184,8 @@
         function removeScheduleChip(day, idx) {
             if (!tempSchedule[day]) return;
             tempSchedule[day].splice(idx, 1);
+            if (!tempScheduleTimes[day]) tempScheduleTimes[day] = [];
+            tempScheduleTimes[day].splice(idx, 1);
             renderSubjectsEditor();
         }
 
@@ -3117,6 +3195,8 @@
             const validCodes = tempSubjectRows.map(r => normalizeCode(r.code)).filter(Boolean);
             for (let i = 0; i < 7; i++) {
                 tempSchedule[i] = (tempSchedule[i] || []).map(normalizeCode).filter(code => validCodes.includes(code));
+                const rowTimes = Array.isArray(tempScheduleTimes[i]) ? tempScheduleTimes[i] : [];
+                tempScheduleTimes[i] = tempSchedule[i].map((_, idx) => normalizeSlotTime(rowTimes[idx] || ''));
             }
 
             const pool = validCodes.length
@@ -3125,12 +3205,15 @@
 
             box.innerHTML = `
                 <div class="mb-2">
-                    <p class="text-[9px] text-gray-500 mb-1">Drag subjects to a day. Drag day chips here to remove.</p>
+                    <p class="text-[9px] text-gray-500 mb-1">Drag subjects to a day. Drag day chips here to remove. Optional time can be edited below.</p>
                     <div class="min-h-[34px] rounded-lg border border-dashed border-dark-500 bg-dark-600/40 p-2 flex flex-wrap gap-1.5" ondragover="allowScheduleDrop(event)" ondrop="dropToPool(event)">${pool}</div>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     ${DAYS.map((day, i) => {
-                        const chips = (tempSchedule[i] || []).map((code, idx) => `<span draggable="true" ondragstart="scheduleDragStart(event, '${code}', ${i}, ${idx})" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-dark-500 text-[10px] cursor-move">${code}<button type="button" onclick="removeScheduleChip(${i}, ${idx})" class="text-gray-400 hover:text-red-400">×</button></span>`).join('');
+                        const chips = (tempSchedule[i] || []).map((code, idx) => {
+                            const t = normalizeSlotTime(tempScheduleTimes[i]?.[idx] || '');
+                            return `<span draggable="true" ondragstart="scheduleDragStart(event, '${code}', ${i}, ${idx}, '${t}')" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-dark-500 text-[10px] cursor-move">${code}${t ? `<span class='text-[9px] text-gray-300'>${t}</span>` : ''}<button type="button" onclick="removeScheduleChip(${i}, ${idx})" class="text-gray-400 hover:text-red-400">×</button></span>`;
+                        }).join('');
                         return `<div class="rounded-lg border border-dark-500 bg-dark-600/40 p-2" ondragover="allowScheduleDrop(event)" ondrop="dropToDay(event, ${i})"><p class="text-[9px] text-gray-400 mb-1">${day}</p><div class="min-h-[28px] flex flex-wrap gap-1.5">${chips || '<span class="text-[9px] text-gray-600">Drop here</span>'}</div></div>`;
                     }).join('')}
                 </div>
@@ -3145,17 +3228,17 @@
                 table.innerHTML = '<p class="text-[10px] text-gray-500">No subjects added yet.</p>';
             } else {
                 table.innerHTML = tempSubjectRows.map((row, i) => `
-                    <div class="grid grid-cols-12 gap-1.5 items-center bg-dark-600 rounded-xl p-2">
-                        <input value="${esc(row.code)}" onchange="setSubjectField(${i}, 'code', this.value)" placeholder="Code" class="col-span-2 px-2 py-1.5 rounded-lg bg-dark-500 border border-dark-500 text-[10px] focus:outline-none focus:border-cyan-500">
-                        <input value="${esc(row.name)}" onchange="setSubjectField(${i}, 'name', this.value)" placeholder="Name" class="col-span-3 px-2 py-1.5 rounded-lg bg-dark-500 border border-dark-500 text-[10px] focus:outline-none focus:border-cyan-500">
-                        <input type="number" step="0.5" min="0" value="${row.credits ?? 0}" onchange="setSubjectField(${i}, 'credits', this.value)" placeholder="Credits" class="col-span-1 px-2 py-1.5 rounded-lg bg-dark-500 border border-dark-500 text-[10px] text-center focus:outline-none focus:border-cyan-500">
-                        <input type="number" min="1" value="${row.limit ?? 1}" onchange="setSubjectField(${i}, 'limit', this.value)" placeholder="Limit" class="col-span-1 px-2 py-1.5 rounded-lg bg-dark-500 border border-dark-500 text-[10px] text-center focus:outline-none focus:border-cyan-500">
-                        <span class="col-span-3 text-[9px] text-gray-300 px-2">${normalizeCode(row.code) ? thresholdLeftForCodeAndCredits(normalizeCode(row.code), row.credits) : '-'}</span>
-                        <label class="col-span-1 text-[10px] text-gray-400 flex items-center justify-center gap-1 cursor-pointer">
+                    <div class="subject-row grid grid-cols-6 sm:grid-cols-12 gap-1.5 items-center bg-dark-600 rounded-xl p-2">
+                        <input value="${esc(row.code)}" onchange="setSubjectField(${i}, 'code', this.value)" placeholder="Code" class="col-span-2 sm:col-span-2 px-2 py-1.5 rounded-lg bg-dark-500 border border-dark-500 text-[10px] focus:outline-none focus:border-cyan-500">
+                        <input value="${esc(row.name)}" onchange="setSubjectField(${i}, 'name', this.value)" placeholder="Name" class="col-span-4 sm:col-span-3 px-2 py-1.5 rounded-lg bg-dark-500 border border-dark-500 text-[10px] focus:outline-none focus:border-cyan-500">
+                        <input type="number" step="0.5" min="0" value="${row.credits ?? 0}" onchange="setSubjectField(${i}, 'credits', this.value)" placeholder="Cr" class="col-span-2 sm:col-span-1 px-2 py-1.5 rounded-lg bg-dark-500 border border-dark-500 text-[10px] text-center focus:outline-none focus:border-cyan-500">
+                        <input type="number" min="1" value="${row.limit ?? 1}" onchange="setSubjectField(${i}, 'limit', this.value)" placeholder="Limit" class="col-span-2 sm:col-span-1 px-2 py-1.5 rounded-lg bg-dark-500 border border-dark-500 text-[10px] text-center focus:outline-none focus:border-cyan-500">
+                        <span class="col-span-4 sm:col-span-3 text-[9px] text-gray-300 px-2">${normalizeCode(row.code) ? thresholdLeftForCodeAndCredits(normalizeCode(row.code), row.credits) : '-'}</span>
+                        <label class="col-span-1 sm:col-span-1 text-[10px] text-gray-400 flex items-center justify-center gap-1 cursor-pointer">
                             <input type="checkbox" ${row.isLab ? 'checked' : ''} onchange="setSubjectField(${i}, 'isLab', this.checked)" class="w-3.5 h-3.5 rounded bg-dark-500 border-dark-500 text-cyan-500 focus:ring-cyan-500">
                             L
                         </label>
-                        <button onclick="removeSubjectRow(${i})" class="col-span-1 p-1.5 rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/30 btn">✕</button>
+                        <button onclick="removeSubjectRow(${i})" class="col-span-1 sm:col-span-1 p-1.5 rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/30 btn">✕</button>
                     </div>
                 `).join('');
             }
@@ -3163,9 +3246,12 @@
             renderScheduleDnD();
 
             schedBox.innerHTML = DAYS.map((day, i) => `
-                <div class="flex items-center gap-2">
-                    <span class="w-16 text-[10px] text-gray-400">${day.slice(0, 3)}</span>
-                    <input value="${esc((tempSchedule[i] || []).join(', '))}" onchange="setScheduleDay(${i}, this.value)" class="flex-1 px-2.5 py-2 rounded-lg bg-dark-600 border border-dark-500 text-[10px] focus:outline-none focus:border-cyan-500" placeholder="e.g. OS, DBS">
+                <div class="sched-row flex items-center gap-2">
+                    <span class="sched-day w-16 text-[10px] text-gray-400">${day.slice(0, 3)}</span>
+                    <input value="${esc((tempSchedule[i] || []).map((code, idx) => {
+                        const t = normalizeSlotTime(tempScheduleTimes[i]?.[idx] || '');
+                        return t ? `${code}@${t}` : code;
+                    }).join(', '))}" onchange="setScheduleDay(${i}, this.value)" class="flex-1 px-2.5 py-2 rounded-lg bg-dark-600 border border-dark-500 text-[10px] focus:outline-none focus:border-cyan-500" placeholder="e.g. OS@09:00, DBS@11:00">
                 </div>
             `).join('');
         }
@@ -3221,8 +3307,11 @@
             }
 
             const normalizedSchedule = {};
+            const normalizedScheduleTimes = {};
             for (let i = 0; i < 7; i++) {
                 normalizedSchedule[i] = (tempSchedule[i] || []).map(normalizeCode).filter(code => seen.has(code));
+                const rowTimes = Array.isArray(tempScheduleTimes[i]) ? tempScheduleTimes[i] : [];
+                normalizedScheduleTimes[i] = normalizedSchedule[i].map((_, idx) => normalizeSlotTime(rowTimes[idx] || ''));
             }
 
             const exchangeWarnings = Object.entries(data.cal || {})
@@ -3238,6 +3327,7 @@
             showLoading('Saving subjects...');
             data.subjectMeta = normalized;
             data.schedule = normalizedSchedule;
+            data.scheduleTimes = normalizedScheduleTimes;
             syncSubjectConfig();
 
             let changedLogs = 0;
@@ -3261,26 +3351,216 @@
             toast(changedLogs ? `✓ Subjects updated (${changedLogs} logs adjusted)` : '✓ Subjects updated');
         }
 
+        function buildBackupPayload() {
+            return {
+                att: data.att,
+                logs: data.logs,
+                cal: data.cal,
+                notes: data.notes,
+                semStart: data.semStart,
+                semEnd: data.semEnd,
+                bestStreak: data.bestStreak,
+                targetPct: data.targetPct,
+                subjectMeta: data.subjectMeta,
+                schedule: data.schedule,
+                scheduleTimes: data.scheduleTimes,
+                explored: !!data.explored,
+                backedUp: true,
+                autoFillMissedEnabled: data.autoFillMissedEnabled !== false,
+                autoFillWindowDays: [30, 90, 180, 365].includes(parseInt(data.autoFillWindowDays, 10)) ? parseInt(data.autoFillWindowDays, 10) : 90
+            };
+        }
+
+        function getSnapshotStorageKey() {
+            return user ? `attendance_snapshot_history_${user.uid}` : 'attendance_snapshot_history_guest';
+        }
+
+        function getSnapshotHistory() {
+            try {
+                const raw = localStorage.getItem(getSnapshotStorageKey());
+                const list = raw ? JSON.parse(raw) : [];
+                return Array.isArray(list) ? list : [];
+            } catch (_) {
+                return [];
+            }
+        }
+
+        function saveSnapshotHistory(list) {
+            localStorage.setItem(getSnapshotStorageKey(), JSON.stringify(Array.isArray(list) ? list.slice(0, 20) : []));
+        }
+
+        function renderBackupHistory() {
+            const box = document.getElementById('backupHistoryList');
+            const count = document.getElementById('snapshotCount');
+            if (!box || !count) return;
+            const snapshots = getSnapshotHistory();
+            count.textContent = `${snapshots.length}`;
+            if (!snapshots.length) {
+                box.innerHTML = '<p class="text-[9px] text-gray-500">No snapshots yet. Tap Save Snapshot to keep restorable versions.</p>';
+                return;
+            }
+            box.innerHTML = snapshots.map((snap, idx) => {
+                const stamp = new Date(snap.timestamp || Date.now()).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+                return `
+                    <div class="bg-dark-600 rounded-lg p-2">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-[9px] text-gray-300">${stamp}</span>
+                            <span class="text-[8px] text-gray-500">${snap.version || 'v4.1'}</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-1">
+                            <button onclick="restoreSnapshot(${idx})" class="py-1 rounded bg-blue-500/20 text-blue-300 text-[9px] btn">Restore</button>
+                            <button onclick="downloadSnapshot(${idx})" class="py-1 rounded bg-dark-500 text-gray-300 text-[9px] btn">Export</button>
+                            <button onclick="deleteSnapshot(${idx})" class="py-1 rounded bg-red-500/20 text-red-300 text-[9px] btn">Delete</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function createSnapshot() {
+            try {
+                const snapshots = getSnapshotHistory();
+                snapshots.unshift({
+                    version: '4.1',
+                    timestamp: new Date().toISOString(),
+                    data: buildBackupPayload()
+                });
+                saveSnapshotHistory(snapshots);
+                data.backedUp = true;
+                await saveData();
+                renderBackupHistory();
+                checkAchievements();
+                toast('✓ Snapshot saved to history');
+            } catch (err) {
+                console.warn('Snapshot save failed:', err);
+                toast('❌ Snapshot save failed (storage may be full)');
+            }
+        }
+
+        async function applyBackupPayload(payload) {
+            showLoading('Restoring...');
+
+            const rawMeta = Array.isArray(payload.subjectMeta) ? payload.subjectMeta : [];
+            const importedMeta = [];
+            const seenCodes = new Set();
+            for (const row of rawMeta) {
+                const code = normalizeCode(row?.code);
+                if (!code || seenCodes.has(code)) continue;
+                seenCodes.add(code);
+                importedMeta.push({
+                    code,
+                    name: sanitizeText(row?.name || code, 60) || code,
+                    credits: Math.max(0, parseFloat(row?.credits) || 0),
+                    limit: Math.max(1, parseInt(row?.limit, 10) || 1),
+                    isLab: !!row?.isLab
+                });
+            }
+
+            const importedSchedule = {};
+            const importedScheduleTimes = {};
+            for (let i = 0; i < 7; i++) {
+                const rawDay = payload.schedule?.[i] || payload.schedule?.[String(i)] || [];
+                const rawTimes = payload.scheduleTimes?.[i] || payload.scheduleTimes?.[String(i)] || [];
+                importedSchedule[i] = Array.isArray(rawDay)
+                    ? rawDay.map(normalizeCode).filter(code => seenCodes.has(code))
+                    : [];
+                importedScheduleTimes[i] = importedSchedule[i].map((_, idx) => normalizeSlotTime(rawTimes[idx] || ''));
+            }
+
+            data.att = payload.att ?? data.att;
+            data.cal = payload.cal ?? data.cal;
+            data.notes = payload.notes ?? data.notes;
+            data.semStart = payload.semStart ?? data.semStart;
+            data.semEnd = payload.semEnd ?? data.semEnd;
+            data.bestStreak = payload.bestStreak ?? data.bestStreak;
+            data.targetPct = payload.targetPct ?? data.targetPct ?? 75;
+            if (importedMeta.length) {
+                data.subjectMeta = importedMeta;
+                data.schedule = importedSchedule;
+                data.scheduleTimes = importedScheduleTimes;
+            }
+            data.explored = !!(payload.explored ?? data.explored);
+            data.backedUp = !!(payload.backedUp ?? data.backedUp);
+            data.autoFillMissedEnabled = typeof payload.autoFillMissedEnabled === 'boolean' ? payload.autoFillMissedEnabled : data.autoFillMissedEnabled;
+            const importedWindow = parseInt(payload.autoFillWindowDays, 10);
+            data.autoFillWindowDays = [30, 90, 180, 365].includes(importedWindow) ? importedWindow : data.autoFillWindowDays;
+            syncSubjectConfig();
+            const allowed = new Set(SUBJECTS);
+
+            await clearAllLogs();
+            data.logs = {};
+            if (payload.logs) {
+                for (const [id, log] of Object.entries(payload.logs)) {
+                    if (!/^\d{4}-\d{2}-\d{2}$/.test(id)) continue;
+                    const classes = Array.isArray(log?.classes)
+                        ? log.classes
+                            .filter(c => c && normalizeCode(c.subj))
+                            .map(c => {
+                                const subj = normalizeCode(c.subj);
+                                const status = ['P', 'A', 'C', null].includes(c.status) ? c.status : null;
+                                return { subj, status };
+                            })
+                            .filter(c => allowed.has(c.subj))
+                        : [];
+                    await saveLog(id, { date: id, classes });
+                }
+            }
+
+            recalc();
+            updateStreak();
+            await saveData();
+            render();
+            hideLoading();
+        }
+
+        async function restoreSnapshot(index) {
+            const snapshots = getSnapshotHistory();
+            const snap = snapshots[index];
+            if (!snap?.data) {
+                toast('❌ Snapshot not found');
+                return;
+            }
+            if (!confirm(`Restore snapshot from ${new Date(snap.timestamp || Date.now()).toLocaleString()}?`)) return;
+            try {
+                await applyBackupPayload(snap.data);
+                toast('✓ Snapshot restored successfully');
+            } catch (err) {
+                console.error(err);
+                hideLoading();
+                toast('❌ Snapshot restore failed');
+            }
+        }
+
+        function downloadSnapshot(index) {
+            const snapshots = getSnapshotHistory();
+            const snap = snapshots[index];
+            if (!snap?.data) {
+                toast('❌ Snapshot not found');
+                return;
+            }
+            const backup = { version: snap.version || '4.1', timestamp: snap.timestamp || new Date().toISOString(), data: snap.data };
+            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `attendance-snapshot-${(snap.timestamp || new Date().toISOString()).slice(0, 10)}.json`;
+            a.click();
+        }
+
+        function deleteSnapshot(index) {
+            const snapshots = getSnapshotHistory();
+            if (index < 0 || index >= snapshots.length) return;
+            snapshots.splice(index, 1);
+            saveSnapshotHistory(snapshots);
+            renderBackupHistory();
+            toast('✓ Snapshot removed');
+        }
+
         async function backupData() {
             const backup = {
-                version: '4.0',
+                version: '4.1',
                 timestamp: new Date().toISOString(),
-                data: {
-                    att: data.att,
-                    logs: data.logs,
-                    cal: data.cal,
-                    notes: data.notes,
-                    semStart: data.semStart,
-                    semEnd: data.semEnd,
-                    bestStreak: data.bestStreak,
-                    targetPct: data.targetPct,
-                    subjectMeta: data.subjectMeta,
-                    schedule: data.schedule,
-                    explored: !!data.explored,
-                    backedUp: true,
-                    autoFillMissedEnabled: data.autoFillMissedEnabled !== false,
-                    autoFillWindowDays: [30, 90, 180, 365].includes(parseInt(data.autoFillWindowDays, 10)) ? parseInt(data.autoFillWindowDays, 10) : 90
-                }
+                data: buildBackupPayload()
             };
             
             data.backedUp = true;
@@ -3308,77 +3588,8 @@
                     toast('❌ Invalid backup file');
                     return;
                 }
-                
-                showLoading('Restoring...');
-
-                const rawMeta = Array.isArray(backup.data.subjectMeta) ? backup.data.subjectMeta : [];
-                const importedMeta = [];
-                const seenCodes = new Set();
-                for (const row of rawMeta) {
-                    const code = normalizeCode(row?.code);
-                    if (!code || seenCodes.has(code)) continue;
-                    seenCodes.add(code);
-                    importedMeta.push({
-                        code,
-                        name: sanitizeText(row?.name || code, 60) || code,
-                        credits: Math.max(0, parseFloat(row?.credits) || 0),
-                        limit: Math.max(1, parseInt(row?.limit, 10) || 1),
-                        isLab: !!row?.isLab
-                    });
-                }
-                const importedSchedule = {};
-                for (let i = 0; i < 7; i++) {
-                    const rawDay = backup.data.schedule?.[i] || backup.data.schedule?.[String(i)] || [];
-                    importedSchedule[i] = Array.isArray(rawDay)
-                        ? rawDay.map(normalizeCode).filter(code => seenCodes.has(code))
-                        : [];
-                }
-                
-                // Restore data
-                data.att = backup.data.att ?? data.att;
-                data.cal = backup.data.cal ?? data.cal;
-                data.notes = backup.data.notes ?? data.notes;
-                data.semStart = backup.data.semStart ?? data.semStart;
-                data.semEnd = backup.data.semEnd ?? data.semEnd;
-                data.bestStreak = backup.data.bestStreak ?? data.bestStreak;
-                data.targetPct = backup.data.targetPct ?? data.targetPct ?? 75;
-                if (importedMeta.length) {
-                    data.subjectMeta = importedMeta;
-                    data.schedule = importedSchedule;
-                }
-                data.explored = !!(backup.data.explored ?? data.explored);
-                data.backedUp = !!(backup.data.backedUp ?? data.backedUp);
-                data.autoFillMissedEnabled = typeof backup.data.autoFillMissedEnabled === 'boolean' ? backup.data.autoFillMissedEnabled : data.autoFillMissedEnabled;
-                const importedWindow = parseInt(backup.data.autoFillWindowDays, 10);
-                data.autoFillWindowDays = [30, 90, 180, 365].includes(importedWindow) ? importedWindow : data.autoFillWindowDays;
-                syncSubjectConfig();
-                const allowed = new Set(SUBJECTS);
-                
-                // Restore logs
-                await clearAllLogs();
-                data.logs = {};
-                if (backup.data.logs) {
-                    for (const [id, log] of Object.entries(backup.data.logs)) {
-                        if (!/^\d{4}-\d{2}-\d{2}$/.test(id)) continue;
-                        const classes = Array.isArray(log?.classes)
-                            ? log.classes
-                                .filter(c => c && normalizeCode(c.subj))
-                                .map(c => {
-                                    const subj = normalizeCode(c.subj);
-                                    const status = ['P', 'A', 'C', null].includes(c.status) ? c.status : null;
-                                    return { subj, status };
-                                })
-                                .filter(c => allowed.has(c.subj))
-                            : [];
-                        await saveLog(id, { date: id, classes });
-                    }
-                }
-                
-                recalc();
-                updateStreak();
-                await saveData();
-                render();
-                hideLoading();
+                await applyBackupPayload(backup.data);
+                renderBackupHistory();
                 toast('✓ Backup restored successfully');
             } catch (e) {
                 console.error(e);
