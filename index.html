@@ -1093,7 +1093,10 @@
 
                 <div class="bg-dark-700 rounded-xl p-3">
                     <p class="text-[10px] font-medium mb-2 text-red-400">Danger Zone</p>
-                    <button onclick="openReset()" class="w-full py-2 rounded-lg bg-red-500/20 text-red-400 text-[10px] btn">⚠️ Reset All Attendance</button>
+                    <div class="space-y-2">
+                        <button onclick="openReset()" class="w-full py-2 rounded-lg bg-red-500/20 text-red-400 text-[10px] btn">⚠️ Reset All Attendance</button>
+                        <button onclick="openFactoryReset()" class="w-full py-2 rounded-lg bg-red-600/25 text-red-300 text-[10px] btn">💥 Factory Reset This Account</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1183,6 +1186,18 @@
             <div class="flex gap-2">
                 <button onclick="closeReset()" class="flex-1 py-2.5 rounded-xl bg-dark-600 text-xs btn">Cancel</button>
                 <button onclick="doReset()" class="flex-1 py-2.5 rounded-xl bg-red-500 text-xs font-medium btn">Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FACTORY RESET MODAL -->
+    <div id="modalFactoryReset" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 modal-backdrop p-3">
+        <div class="glass rounded-2xl p-4 w-full max-w-xs modal-content">
+            <h3 class="text-sm font-semibold text-red-300 mb-2">💥 Factory Reset This Account?</h3>
+            <p class="text-[10px] text-gray-500 mb-3">This resets only the current account to zero/default data: attendance, logs, notes, events/holidays, timetable, target, and settings. Other accounts are not affected.</p>
+            <div class="flex gap-2">
+                <button onclick="closeFactoryReset()" class="flex-1 py-2.5 rounded-xl bg-dark-600 text-xs btn">Cancel</button>
+                <button onclick="doFactoryReset()" class="flex-1 py-2.5 rounded-xl bg-red-600 text-xs font-medium btn">Factory Reset</button>
             </div>
         </div>
     </div>
@@ -1287,7 +1302,7 @@
 
         function buildDefaultUserDoc() {
             const subjectMeta = getDefaultSubjectList();
-            const schedule = JSON.parse(JSON.stringify(DEFAULT_SCHED));
+            const schedule = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
             const scheduleTimes = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
             const att = {};
             subjectMeta.forEach(row => {
@@ -1297,7 +1312,7 @@
             return {
                 att,
                 logs: {},
-                cal: { ...CAL_DEFAULT },
+                cal: {},
                 semStart: null,
                 semEnd: null,
                 notes: {},
@@ -1622,18 +1637,21 @@
             const doc = await db.collection('att_users').doc(user.uid).get();
             if (!doc.exists) { await initUser(user); return loadData(); }
             data = doc.data();
-            if (!data.cal) data.cal = { ...CAL_DEFAULT };
-            if (!data.att) data.att = {};
-            if (!data.semStart) data.semStart = null;
-            if (!data.semEnd) data.semEnd = null;
-            if (!data.notes) data.notes = {};
-            if (!data.bestStreak) data.bestStreak = 0;
-            if (!data.targetPct) data.targetPct = 75;
-            if (typeof data.explored !== 'boolean') data.explored = false;
-            if (typeof data.backedUp !== 'boolean') data.backedUp = false;
-            if (typeof data.autoFillMissedEnabled !== 'boolean') data.autoFillMissedEnabled = true;
+            const fresh = buildDefaultUserDoc();
+            if (!data.cal || typeof data.cal !== 'object') data.cal = fresh.cal;
+            if (!data.att || typeof data.att !== 'object') data.att = fresh.att;
+            if (!Array.isArray(data.subjectMeta) || !data.subjectMeta.length) data.subjectMeta = fresh.subjectMeta;
+            if (!data.schedule || typeof data.schedule !== 'object') data.schedule = fresh.schedule;
+            if (!data.scheduleTimes || typeof data.scheduleTimes !== 'object') data.scheduleTimes = fresh.scheduleTimes;
+            if (!data.semStart) data.semStart = fresh.semStart;
+            if (!data.semEnd) data.semEnd = fresh.semEnd;
+            if (!data.notes || typeof data.notes !== 'object') data.notes = fresh.notes;
+            if (!data.bestStreak) data.bestStreak = fresh.bestStreak;
+            if (!data.targetPct) data.targetPct = fresh.targetPct;
+            if (typeof data.explored !== 'boolean') data.explored = fresh.explored;
+            if (typeof data.backedUp !== 'boolean') data.backedUp = fresh.backedUp;
+            if (typeof data.autoFillMissedEnabled !== 'boolean') data.autoFillMissedEnabled = fresh.autoFillMissedEnabled;
             data.autoFillWindowDays = [30, 90, 180, 365].includes(parseInt(data.autoFillWindowDays, 10)) ? parseInt(data.autoFillWindowDays, 10) : 90;
-            if (!data.scheduleTimes || typeof data.scheduleTimes !== 'object') data.scheduleTimes = {};
             syncSubjectConfig();
             const logs = await db.collection('att_users').doc(user.uid).collection('logs').get();
             data.logs = {}; logs.forEach(d => data.logs[d.id] = d.data());
@@ -4152,6 +4170,9 @@
         // =====================================================================
         function openReset() { document.getElementById('modalReset').classList.remove('hidden'); }
         function closeReset() { document.getElementById('modalReset').classList.add('hidden'); }
+
+        function openFactoryReset() { document.getElementById('modalFactoryReset').classList.remove('hidden'); }
+        function closeFactoryReset() { document.getElementById('modalFactoryReset').classList.add('hidden'); }
         
         async function doReset() {
             closeReset(); 
@@ -4161,6 +4182,43 @@
             await saveData(); selectDay(today()); render(); 
             hideLoading();
             toast('✓ Attendance reset complete');
+        }
+
+        async function doFactoryReset() {
+            closeFactoryReset();
+            showLoading('Factory resetting account...');
+            try {
+                await clearAllLogs();
+                const fresh = buildDefaultUserDoc();
+                data.att = fresh.att;
+                data.logs = fresh.logs;
+                data.cal = fresh.cal;
+                data.semStart = fresh.semStart;
+                data.semEnd = fresh.semEnd;
+                data.notes = fresh.notes;
+                data.bestStreak = fresh.bestStreak;
+                data.targetPct = fresh.targetPct;
+                data.subjectMeta = fresh.subjectMeta;
+                data.schedule = fresh.schedule;
+                data.scheduleTimes = fresh.scheduleTimes;
+                data.explored = fresh.explored;
+                data.backedUp = fresh.backedUp;
+                data.autoFillMissedEnabled = fresh.autoFillMissedEnabled;
+                data.autoFillWindowDays = fresh.autoFillWindowDays;
+
+                saveSnapshotHistory([]);
+                syncSubjectConfig();
+                await saveData();
+                selectDay(today());
+                render();
+                closeSettings();
+                hideLoading();
+                toast('✓ This account was factory reset');
+            } catch (err) {
+                console.error(err);
+                hideLoading();
+                toast('❌ Factory reset failed');
+            }
         }
 
         // =====================================================================
