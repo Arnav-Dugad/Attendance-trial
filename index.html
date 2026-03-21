@@ -49,6 +49,9 @@
         .cal-cell:active { transform: scale(0.92); }
         .cal-logged { background: rgba(16, 185, 129, 0.12); border-color: rgba(16, 185, 129, 0.3); }
         .cal-holiday { background: rgba(239, 68, 68, 0.12); border-color: rgba(239, 68, 68, 0.25); }
+        .cal-exam { background: rgba(245, 158, 11, 0.14); border-color: rgba(245, 158, 11, 0.35); }
+        .cal-halfday { background: rgba(59, 130, 246, 0.12); border-color: rgba(59, 130, 246, 0.28); }
+        .cal-exchange { background: rgba(139, 92, 246, 0.14); border-color: rgba(139, 92, 246, 0.35); }
         .cal-event { background: rgba(139, 92, 246, 0.12); border-color: rgba(139, 92, 246, 0.25); }
         .cal-sunday { background: rgba(251, 191, 36, 0.08); border-color: rgba(251, 191, 36, 0.2); }
         .cal-selected { background: rgba(59, 130, 246, 0.25) !important; border-color: rgba(59, 130, 246, 0.5) !important; box-shadow: 0 0 8px rgba(59, 130, 246, 0.3); }
@@ -104,6 +107,15 @@
         .achievement.unlocked { animation: glow 2s ease-in-out; }
         .progress-bar { height: 4px; border-radius: 2px; overflow: hidden; background: rgba(255,255,255,0.1); }
         .progress-bar-fill { height: 100%; transition: width 0.5s ease-out; }
+        .timetable-grid { border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow: hidden; }
+        .timetable-row { display: grid; grid-template-columns: 48px repeat(7, minmax(84px, 1fr)); }
+        .timetable-head { background: rgba(30, 30, 42, 0.8); }
+        .timetable-cell { border-right: 1px solid rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.05); min-height: 54px; padding: 4px; }
+        .timetable-cell:last-child { border-right: 0; }
+        .weekly-bar { position: relative; width: 100%; height: 100%; border-radius: 6px 6px 0 0; overflow: hidden; background: rgba(255,255,255,0.05); }
+        .weekly-fill { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 6px 6px 0 0; transition: height 0.25s ease; }
+        .weekly-target { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.45); pointer-events: none; }
+        #scheduleDnD input[type="time"] { color-scheme: dark; min-width: 84px; }
         .quick-btn { min-height: 44px; min-width: 44px; }
         .subject-tag { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: 600; }
         .nav-item { transition: all 0.2s; }
@@ -126,6 +138,8 @@
             main { padding-left: 0.6rem !important; padding-right: 0.6rem !important; }
             #weeklyTrend { height: 5.5rem; gap: 0.2rem; }
             #weeklyLabels { font-size: 9px; }
+            .timetable-row { grid-template-columns: 38px repeat(7, minmax(74px, 1fr)); }
+            .timetable-cell { min-height: 50px; padding: 3px; }
             #subjGrid { grid-template-columns: 1fr; }
             #quickStatsBar .max-w-lg { flex-wrap: wrap; gap: 0.35rem; }
             #quickStatsBar .max-w-lg > div { width: 100%; justify-content: space-between; }
@@ -355,9 +369,12 @@
                 <div class="flex flex-wrap gap-2 text-[9px] text-gray-500">
                     <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-emerald-500/20 border border-emerald-500/30"></span>Logged</span>
                     <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-red-500/20 border border-red-500/30"></span>Holiday</span>
+                    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-amber-500/20 border border-amber-500/40"></span>Exam</span>
+                    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-blue-500/20 border border-blue-500/30"></span>Half Day</span>
                     <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-amber-500/10 border border-amber-500/20"></span>Sunday</span>
-                    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-violet-500/20 border border-violet-500/30"></span>Event</span>
+                    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-violet-500/20 border border-violet-500/30"></span>Exchange/Event</span>
                 </div>
+                <div id="calMeta" class="text-[9px] text-gray-500 mt-2"></div>
             </div>
 
             <!-- Day Editor -->
@@ -498,6 +515,10 @@
                         <span id="trendIndicator" class="badge badge-info"></span>
                     </h3>
                     <span class="text-[10px] text-gray-500" id="weeklyAvg"></span>
+                </div>
+                <div class="flex items-center justify-between text-[9px] text-gray-500 mb-1">
+                    <span id="weeklyMeta">Last 7 days performance</span>
+                    <span id="weeklyTargetText">Target: 75%</span>
                 </div>
                 <div id="weeklyTrend" class="flex items-end justify-between gap-1 h-16"></div>
                 <div class="flex justify-between text-[8px] text-gray-600 mt-1" id="weeklyLabels"></div>
@@ -733,12 +754,12 @@
 
     <!-- SCHEDULE MODAL -->
     <div id="modalSchedule" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 modal-backdrop p-3">
-        <div class="glass rounded-t-2xl sm:rounded-2xl p-4 w-full max-w-md max-h-[80vh] overflow-y-auto modal-content">
+        <div class="glass rounded-t-2xl sm:rounded-2xl p-4 w-full max-w-5xl max-h-[82vh] overflow-y-auto modal-content">
             <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-semibold">📅 Weekly Schedule</h3>
                 <button onclick="closeSchedule()" class="p-1.5 hover:bg-dark-600 rounded-lg btn"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
             </div>
-            <div id="scheduleGrid" class="space-y-2"></div>
+            <div id="scheduleGrid" class="space-y-3"></div>
         </div>
     </div>
 
@@ -824,6 +845,7 @@
                 <button onclick="closeHeatmap()" class="p-1.5 hover:bg-dark-600 rounded-lg btn"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
             </div>
             <p class="text-[10px] text-gray-500 mb-3">Last 12 weeks attendance pattern</p>
+            <p id="heatmapSummary" class="text-[9px] text-gray-500 mb-2"></p>
             <div id="heatmapGrid"></div>
             <div class="flex justify-between mt-3 text-[9px] text-gray-500">
                 <span>Less</span>
@@ -1801,6 +1823,10 @@
 
             const avgPct = totalH > 0 ? Math.round(totalA / totalH * 100) : 0;
             document.getElementById('weeklyAvg').textContent = totalH > 0 ? `Avg: ${avgPct}%` : 'No data';
+            const weeklyMeta = document.getElementById('weeklyMeta');
+            const weeklyTargetText = document.getElementById('weeklyTargetText');
+            if (weeklyMeta) weeklyMeta.textContent = `${totalA}/${totalH || 0} attended this week`;
+            if (weeklyTargetText) weeklyTargetText.textContent = `Target: ${target}%`;
 
             // Calculate trend (comparing first half to second half)
             const firstHalf = days.slice(0, 3).filter(d => d.pct !== null);
@@ -1822,13 +1848,16 @@
             container.innerHTML = days.map(d => {
                 if (d.pct === null) {
                     return `<div class="flex-1 h-full flex flex-col items-center justify-end">
-                        <div class="w-full bg-dark-600 rounded-t" style="height:8%;min-height:6px"></div>
+                        <div class="weekly-bar"><div class="weekly-fill bg-dark-600" style="height:8%;min-height:6px"></div></div>
                     </div>`;
                 }
                 const height = Math.min(100, Math.max(10, d.pct));
                 const color = d.pct >= target ? 'bg-emerald-500' : d.pct >= 50 ? 'bg-amber-500' : 'bg-red-500';
                 return `<div class="flex-1 h-full flex flex-col items-center justify-end has-tooltip">
-                    <div class="${color} w-full rounded-t transition-all" style="height:${height}%"></div>
+                    <div class="weekly-bar">
+                        <div class="weekly-target" style="bottom:${target}%"></div>
+                        <div class="weekly-fill ${color}" style="height:${height}%"></div>
+                    </div>
                     <span class="tooltip">${short(d.id)}: ${Math.round(d.pct)}% (${d.a}/${d.h})</span>
                 </div>`;
             }).join('');
@@ -1839,6 +1868,7 @@
         function renderCal() {
             const g = document.getElementById('calGrid'), y = curMonth.getFullYear(), m = curMonth.getMonth();
             document.getElementById('calTitle').textContent = curMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            const calMeta = document.getElementById('calMeta');
             
             // Calculate month stats
             let monthA = 0, monthH = 0;
@@ -1852,6 +1882,7 @@
             });
             const monthPct = monthH ? Math.round(monthA / monthH * 100) : 100;
             document.getElementById('calSubtitle').textContent = monthH ? `${monthPct}% • ${monthA}/${monthH} classes` : 'No data';
+            let holidayCount = 0, examCount = 0, halfdayCount = 0, exchangeCount = 0;
             
             const first = new Date(y, m, 1).getDay(), days = new Date(y, m + 1, 0).getDate(), tid = today();
             let h = ''; 
@@ -1872,14 +1903,19 @@
                     if (hasA && hasP) c += ' cal-partial';
                     else c += ' cal-logged';
                 }
-                else if (ev?.type === 'holiday' || ev?.type === 'exam') c += ' cal-holiday';
+                else if (ev?.type === 'holiday') { c += ' cal-holiday'; holidayCount++; }
+                else if (ev?.type === 'exam') { c += ' cal-exam'; examCount++; }
+                else if (ev?.type === 'halfday') { c += ' cal-halfday'; halfdayCount++; }
+                else if (ev?.type === 'exchange') { c += ' cal-exchange'; exchangeCount++; }
                 else if (ev) c += ' cal-event';
                 else if (isSunday) c += ' cal-sunday';
                 if (hasNote) c += ' cal-note';
                 if (isFut) c += ' text-gray-600';
-                h += `<div class="${c}" onclick="selectDay('${id}')">${d}</div>`;
+                const tip = ev ? `${esc(ev.name)} (${String(ev.type || 'event').toUpperCase()})` : (logged ? 'Logged day' : short(id));
+                h += `<div class="${c} has-tooltip" onclick="selectDay('${id}')">${d}${ev ? '<span class="absolute bottom-1 right-1 w-1.5 h-1.5 rounded-full bg-white/70"></span>' : ''}<span class="tooltip">${tip}</span></div>`;
             }
             g.innerHTML = h;
+            if (calMeta) calMeta.textContent = `Month events: ${holidayCount} holidays • ${examCount} exams • ${halfdayCount} half days • ${exchangeCount} exchanges`;
         }
         
         function renderStats() {
@@ -1962,7 +1998,7 @@
             }).join('');
 
             const totalLeft = rows.reduce((sum, r) => sum + r.left, 0);
-            const closest = rows.slice().sort((a, b) => a.left - b.left)[0];
+            const closest = rows.filter(r => r.left > 0).slice().sort((a, b) => a.left - b.left)[0];
             const toughest = rows.slice().sort((a, b) => b.left - a.left)[0];
 
             document.getElementById('tLeftTotal').textContent = totalLeft;
@@ -2330,24 +2366,53 @@
         function openSchedule() {
             markExplored();
             const grid = document.getElementById('scheduleGrid');
-            grid.innerHTML = DAYS.map((day, i) => {
-                const subjs = SCHED[i] || [];
-                const times = data.scheduleTimes?.[i] || [];
-                return `
-                    <div class="bg-dark-700 rounded-xl p-3">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-[11px] font-semibold ${i === 0 ? 'text-amber-400' : ''}">${day}</span>
-                            <span class="text-[9px] text-gray-500">${subjs.length} classes</span>
-                        </div>
-                        <div class="flex flex-wrap gap-1">
-                            ${subjs.length ? subjs.map((s, idx) => {
-                                const t = normalizeSlotTime(times[idx] || '');
-                                return `<span class="badge ${LABS.includes(s) ? 'badge-purple' : 'badge-info'}">${s}${t ? ` • ${slotRangeText(s, t)}` : ''}</span>`;
-                            }).join('') : '<span class="text-[10px] text-gray-500">Holiday</span>'}
-                        </div>
+            const dayData = DAYS.map((day, i) => ({
+                day,
+                idx: i,
+                subjs: SCHED[i] || [],
+                times: data.scheduleTimes?.[i] || []
+            }));
+            const maxSlots = Math.max(1, ...dayData.map(d => d.subjs.length));
+
+            const table = `
+                <div class="timetable-grid overflow-x-auto">
+                    <div class="timetable-row timetable-head">
+                        <div class="timetable-cell text-[9px] text-gray-500 font-medium flex items-center justify-center">Slot</div>
+                        ${dayData.map(d => `<div class="timetable-cell text-[9px] font-semibold ${d.idx === 0 ? 'text-amber-400' : 'text-gray-300'} flex items-center justify-center">${d.day.slice(0, 3)}</div>`).join('')}
                     </div>
-                `;
-            }).join('');
+                    ${Array.from({ length: maxSlots }).map((_, rowIdx) => `
+                        <div class="timetable-row">
+                            <div class="timetable-cell text-[9px] text-gray-500 flex items-center justify-center">${rowIdx + 1}</div>
+                            ${dayData.map(d => {
+                                const code = d.subjs[rowIdx];
+                                if (!code) return `<div class="timetable-cell text-[9px] text-gray-600 flex items-center justify-center">-</div>`;
+                                const t = normalizeSlotTime(d.times[rowIdx] || '');
+                                const lab = LABS.includes(code);
+                                return `<div class="timetable-cell"><div class="rounded-lg p-1.5 ${lab ? 'bg-violet-500/15 border border-violet-500/30' : 'bg-blue-500/10 border border-blue-500/25'}"><p class="text-[10px] font-semibold ${lab ? 'text-violet-300' : 'text-blue-300'}">${code}</p><p class="text-[8px] text-gray-400">${t ? slotRangeText(code, t) : (lab ? '2.5h lab slot' : '1h theory slot')}</p></div></div>`;
+                            }).join('')}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            const summary = dayData.map(d => `
+                <div class="bg-dark-700 rounded-xl p-2.5">
+                    <div class="flex justify-between items-center mb-1"><span class="text-[10px] font-semibold ${d.idx === 0 ? 'text-amber-400' : ''}">${d.day}</span><span class="text-[9px] text-gray-500">${d.subjs.length} classes</span></div>
+                    <div class="flex flex-wrap gap-1">${d.subjs.length ? d.subjs.map((s, idx) => {
+                        const t = normalizeSlotTime(d.times[idx] || '');
+                        return `<span class="badge ${LABS.includes(s) ? 'badge-purple' : 'badge-info'}">${s}${t ? ` ${to12h(t)}` : ''}</span>`;
+                    }).join('') : '<span class="text-[9px] text-gray-600">No classes</span>'}</div>
+                </div>
+            `).join('');
+
+            grid.innerHTML = `
+                <div class="flex items-center justify-between text-[9px] text-gray-500">
+                    <span>Timetable view (theory: 1h, lab: 2.5h)</span>
+                    <span>${maxSlots} slot${maxSlots > 1 ? 's' : ''} max/day</span>
+                </div>
+                ${table}
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">${summary}</div>
+            `;
             document.getElementById('modalSchedule').classList.remove('hidden');
         }
         function closeSchedule() { document.getElementById('modalSchedule').classList.add('hidden'); }
@@ -2723,6 +2788,7 @@
         
         function renderHeatmap() {
             const grid = document.getElementById('heatmapGrid');
+            const summary = document.getElementById('heatmapSummary');
             const weeks = 12;
             const todayDate = new Date();
             const data_map = {};
@@ -2731,8 +2797,12 @@
                 const classes = log.classes || [];
                 const p = classes.filter(c => c.status === 'P').length;
                 const total = classes.filter(c => c.status !== 'C').length;
-                data_map[id] = total > 0 ? p / total : 0;
+                if (total > 0) data_map[id] = p / total;
             });
+
+            const vals = Object.values(data_map);
+            const avg = vals.length ? Math.round(vals.reduce((s, v) => s + v, 0) / vals.length * 100) : 0;
+            if (summary) summary.textContent = vals.length ? `${vals.length} active days • average ${avg}%` : 'No active attendance logs yet';
             
             let html = '<div class="flex gap-1 text-[8px] text-gray-600 mb-1"><span class="w-4"></span>';
             ['S','M','T','W','T','F','S'].forEach(d => html += `<span class="w-5 text-center">${d}</span>`);
@@ -2750,13 +2820,15 @@
                     const val = data_map[id];
                     const targetDec = (data.targetPct || 75) / 100;
                     let color = 'bg-gray-800';
+                    const isFuture = id > today();
+                    if (isFuture) color = 'bg-gray-900/60';
                     if (val !== undefined) {
                         if (val >= 0.9) color = 'bg-emerald-500';
                         else if (val >= targetDec) color = 'bg-emerald-500/70';
                         else if (val >= 0.5) color = 'bg-amber-500/60';
                         else color = 'bg-red-500/40';
                     }
-                    html += `<div class="heatmap-cell w-5 h-5 rounded ${color} cursor-pointer has-tooltip"><span class="tooltip">${short(id)}${val !== undefined ? ': ' + Math.round(val * 100) + '%' : ''}</span></div>`;
+                    html += `<div class="heatmap-cell w-5 h-5 rounded ${color} ${isFuture ? '' : 'cursor-pointer'} has-tooltip" ${isFuture ? '' : `onclick="selectDay('${id}'); closeHeatmap();"`}><span class="tooltip">${short(id)}${isFuture ? ' (future)' : (val !== undefined ? ': ' + Math.round(val * 100) + '%' : ': No classes')}</span></div>`;
                 }
                 html += '</div>';
             }
