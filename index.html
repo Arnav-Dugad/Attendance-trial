@@ -168,6 +168,14 @@
             #modalSubjects #scheduleEditor .sched-day { width: 44px; padding-top: 0.45rem; }
             #modalSubjects #subjectActions { position: sticky; bottom: 0; background: linear-gradient(to top, rgba(8, 8, 12, 0.95), rgba(8, 8, 12, 0.72)); padding-top: 0.5rem; }
             #scheduleDnD input[type="time"] { min-width: 78px; height: 1.45rem; }
+            #bottomBar button { min-height: 44px; }
+            #dayActionRow .btn { min-height: 40px; }
+            #todayClasses .subject-tag { min-height: 28px; }
+        }
+        @media (pointer: coarse) {
+            .cal-cell:hover { transform: none; }
+            .glass-hover:hover { transform: none; }
+            .btn:active { transform: scale(0.97); }
         }
     </style>
 </head>
@@ -1288,6 +1296,28 @@
         const esc = s => String(s || '').replace(/[&<>'"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[ch]));
         const sanitizeText = (s, max = 80) => String(s || '').replace(/[<>`]/g, '').replace(/\s+/g, ' ').trim().slice(0, max);
         const normalizeCode = c => String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+        const clampTargetPct = value => {
+            const num = Number(value);
+            if (!Number.isFinite(num)) return 75;
+            return Math.max(50, Math.min(100, Math.round(num)));
+        };
+        const getTargetPct = () => clampTargetPct(data?.targetPct ?? 75);
+        const classesToReachTarget = (attended, held, targetPct) => {
+            const a = Math.max(0, Number(attended) || 0);
+            const h = Math.max(0, Number(held) || 0);
+            const t = clampTargetPct(targetPct) / 100;
+            if (h === 0) return 0;
+            if (t >= 1) return a === h ? 0 : Infinity;
+            if ((a / h) >= t) return 0;
+            return Math.ceil((t * h - a) / (1 - t));
+        };
+        const safeBunksAllowed = (attended, held, targetPct) => {
+            const a = Math.max(0, Number(attended) || 0);
+            const h = Math.max(0, Number(held) || 0);
+            const t = clampTargetPct(targetPct) / 100;
+            if (h === 0 || t <= 0 || t >= 1 || (a / h) < t) return 0;
+            return Math.max(0, Math.floor((a - t * h) / t));
+        };
         const normalizeSlotTime = value => {
             const raw = String(value || '').trim();
             if (!raw) return '';
@@ -1414,13 +1444,7 @@
 
         function classesNeededForTarget(subj, targetPct = 75) {
             const d = data.att[subj] || { a: 0, h: 0 };
-            if (targetPct <= 0) return 0;
-            if (targetPct >= 100) return d.a === d.h ? 0 : Infinity;
-            const target = targetPct / 100;
-            if (d.h === 0) return 0;
-            const currentPct = d.a / d.h * 100;
-            if (currentPct >= targetPct) return 0;
-            return Math.ceil((target * d.h - d.a) / (1 - target));
+            return classesToReachTarget(d.a, d.h, targetPct);
         }
 
         function creditRuleTotalClasses(credits) {
@@ -1785,8 +1809,13 @@
             if (logged) {
                 const p = classes.filter(c => c.status === 'P').length;
                 const total = classes.filter(c => c.status !== 'C').length;
-                document.getElementById('todayStatus').textContent = `${p}/${total} ✓`;
-                document.getElementById('todayStatus').className = p === total ? 'badge badge-success' : 'badge badge-warning';
+                if (total === 0) {
+                    document.getElementById('todayStatus').textContent = 'All Cancelled';
+                    document.getElementById('todayStatus').className = 'badge badge-purple';
+                } else {
+                    document.getElementById('todayStatus').textContent = `${p}/${total} ✓`;
+                    document.getElementById('todayStatus').className = p === total ? 'badge badge-success' : 'badge badge-warning';
+                }
             } else {
                 document.getElementById('todayStatus').textContent = 'Pending';
                 document.getElementById('todayStatus').className = 'badge badge-info';
@@ -1852,7 +1881,7 @@
             const labels = document.getElementById('weeklyLabels');
             if (!container || !labels) return;
             const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-            const target = data.targetPct || 75;
+            const target = getTargetPct();
             const days = [];
             let totalA = 0, totalH = 0;
 
@@ -1981,7 +2010,7 @@
             let a = 0, h = 0, lim = 0;
             SUBJECTS.forEach(s => { const d = data.att[s] || { a: 0, h: 0 }; a += d.a; h += d.h; lim += LIMITS[s]; });
             const pct = h ? Math.round(a / h * 100) : 100;
-            const target = data.targetPct || 75;
+            const target = getTargetPct();
 
             document.getElementById('ringPct').textContent = pct + '%';
             document.getElementById('sA').textContent = a;
@@ -2084,11 +2113,11 @@
         function renderSafeBunkPlanner() {
             const box = document.getElementById('safeBunkPlanner');
             if (!box) return;
-            const target = (data.targetPct || 75) / 100;
+            const targetPct = getTargetPct();
             const remainingBunks = {};
             SUBJECTS.forEach(s => {
                 const d = data.att[s] || { a: 0, h: 0 };
-                const can = d.h > 0 && (d.a / d.h) >= target ? Math.max(0, Math.floor((d.a - target * d.h) / target)) : 0;
+                const can = safeBunksAllowed(d.a, d.h, targetPct);
                 remainingBunks[s] = can;
             });
 
@@ -2143,7 +2172,7 @@
                 sorted.sort((a, b) => {
                     const pctA = data.att[a]?.h ? data.att[a].a / data.att[a].h : 1;
                     const pctB = data.att[b]?.h ? data.att[b].a / data.att[b].h : 1;
-                    const target = (data.targetPct || 75) / 100;
+                    const target = getTargetPct() / 100;
                     const critA = pctA < target ? 1 : 0;
                     const critB = pctB < target ? 1 : 0;
                     return critB - critA || pctA - pctB;
@@ -2153,10 +2182,12 @@
             g.innerHTML = sorted.map(s => {
                 const d = data.att[s] || { a: 0, h: 0 }, pct = d.h ? d.a / d.h * 100 : 100, isLab = LABS.includes(s);
                 let status, stCls;
-                const target = data.targetPct || 75;
-                const targetDec = target / 100;
-                if (pct >= target) { const b = Math.floor((d.a - targetDec * d.h) / targetDec); status = b > 0 ? `+${b}` : '0'; stCls = 'text-emerald-400'; }
-                else { const n = Math.ceil((targetDec * d.h - d.a) / (1 - targetDec)); status = `-${n}`; stCls = 'text-red-400'; }
+                const target = getTargetPct();
+                const needed = classesToReachTarget(d.a, d.h, target);
+                const bunk = safeBunksAllowed(d.a, d.h, target);
+                if (needed === 0) { status = bunk > 0 ? `+${bunk}` : '0'; stCls = 'text-emerald-400'; }
+                else if (!Number.isFinite(needed)) { status = '-∞'; stCls = 'text-red-400'; }
+                else { status = `-${needed}`; stCls = 'text-red-400'; }
                 const border = pct >= target ? 'border-emerald-500/20' : 'border-red-500/25';
                 const prog = pct >= target ? 'bg-emerald-500' : pct >= 60 ? 'bg-amber-500' : 'bg-red-500';
                 
@@ -2252,7 +2283,7 @@
             document.getElementById('iBestDay').textContent = bestDay;
 
             // Critical subjects
-            const targetPct = data.targetPct || 75;
+            const targetPct = getTargetPct();
             const critical = SUBJECTS.filter(s => {
                 const d = data.att[s] || { a: 0, h: 0 };
                 return d.h > 0 && (d.a / d.h * 100) < targetPct;
@@ -2312,6 +2343,9 @@
             const momentumEl = document.getElementById('iMomentum');
             if (recent === null && previous === null) {
                 momentumEl.textContent = 'No data';
+                momentumEl.className = 'text-sm font-bold text-gray-400';
+            } else if (recent === null) {
+                momentumEl.textContent = 'No recent classes';
                 momentumEl.className = 'text-sm font-bold text-gray-400';
             } else if (previous === null) {
                 momentumEl.textContent = `${Math.round(recent)}% (new)`;
@@ -2384,7 +2418,7 @@
             const overall = h ? Math.round(a / h * 100) : 100;
             document.getElementById('pPct').textContent = overall + '%';
 
-            const target = data.targetPct || 75;
+            const target = getTargetPct();
             const progress = Math.min(100, Math.max(0, Math.round((overall / Math.max(1, target)) * 100)));
             document.getElementById('pTarget').textContent = `${overall}% / ${target}%`;
             document.getElementById('pTargetBar').style.width = `${progress}%`;
@@ -2794,11 +2828,13 @@
             const target = parseFloat(document.getElementById('calcTarget').value);
             const result = document.getElementById('calcResult');
             
-            if (!subj || !target) {
+            if (!subj || !Number.isFinite(target)) {
                 result.innerHTML = '<p class="text-red-400">Please select subject and enter target %</p>';
                 result.classList.remove('hidden');
                 return;
             }
+            const cleanTarget = clampTargetPct(target);
+            document.getElementById('calcTarget').value = String(cleanTarget);
             
             const d = data.att[subj] || { a: 0, h: 0 };
             if (d.h === 0) {
@@ -2809,19 +2845,19 @@
             
             const currentPct = (d.a / d.h * 100).toFixed(1);
             
-            if (parseFloat(currentPct) >= target) {
+            if (parseFloat(currentPct) >= cleanTarget) {
                 result.innerHTML = `<p class="text-emerald-400">✓ You're already at ${currentPct}%!</p>`;
             } else {
-                const needed = Math.ceil((target / 100 * d.h - d.a) / (1 - target / 100));
+                const needed = classesToReachTarget(d.a, d.h, cleanTarget);
                 if (!Number.isFinite(needed) || needed < 0) {
-                    result.innerHTML = `<p class="text-amber-400">Target ${target}% is too high for a finite class estimate right now.</p>`;
+                    result.innerHTML = `<p class="text-amber-400">Target ${cleanTarget}% requires perfect attendance from now on. A finite estimate is not available.</p>`;
                     result.classList.remove('hidden');
                     return;
                 }
                 result.innerHTML = `
                     <div class="bg-dark-600 rounded-lg p-2.5">
                         <p class="text-gray-400 mb-1">Current: <span class="text-white font-bold">${currentPct}%</span></p>
-                        <p class="text-emerald-400">Attend <span class="font-bold text-lg">${needed}</span> consecutive classes to reach ${target}%</p>
+                        <p class="text-emerald-400">Attend <span class="font-bold text-lg">${needed}</span> consecutive classes to reach ${cleanTarget}%</p>
                     </div>
                 `;
             }
@@ -2830,14 +2866,13 @@
         
         function renderBunkCalc() {
             const box = document.getElementById('bunkCalc');
-            const target = data.targetPct || 75;
-            const targetDec = target / 100;
+            const target = getTargetPct();
             const results = SUBJECTS.map(s => {
                 const d = data.att[s] || { a: 0, h: 0 };
                 if (d.h === 0) return null;
                 const pct = d.a / d.h * 100;
                 if (pct < target) return null;
-                const canBunk = Math.floor((d.a - targetDec * d.h) / targetDec);
+                const canBunk = safeBunksAllowed(d.a, d.h, target);
                 return { subj: s, canBunk, pct: pct.toFixed(1) };
             }).filter(Boolean);
 
@@ -2879,11 +2914,13 @@
             }
             
             const d = data.att[subj] || { a: 0, h: 0 };
-            const newA = d.a + attend;
-            const newH = d.h + attend + miss;
+            const safeAttend = Math.max(0, attend);
+            const safeMiss = Math.max(0, miss);
+            const newA = d.a + safeAttend;
+            const newH = d.h + safeAttend + safeMiss;
             const currentPct = d.h ? (d.a / d.h * 100).toFixed(1) : 100;
             const newPct = newH ? (newA / newH * 100).toFixed(1) : 100;
-            const target = data.targetPct || 75;
+            const target = getTargetPct();
             
             result.innerHTML = `
                 <div class="bg-dark-600 rounded-lg p-2.5">
@@ -2903,8 +2940,7 @@
 
         function renderWhatIfScenarios() {
             const box = document.getElementById('wifScenarios');
-            const target = data.targetPct || 75;
-            const targetDec = target / 100;
+            const target = getTargetPct();
             const critical = SUBJECTS.filter(s => {
                 const d = data.att[s] || { a: 0, h: 0 };
                 return d.h > 0 && (d.a / d.h * 100) < target;
@@ -2918,7 +2954,7 @@
             box.innerHTML = critical.map(s => {
                 const d = data.att[s];
                 const pct = (d.a / d.h * 100).toFixed(1);
-                const need = Math.ceil((targetDec * d.h - d.a) / (1 - targetDec));
+                const need = classesToReachTarget(d.a, d.h, target);
                 return `
                     <div class="bg-dark-600 rounded-lg p-2 text-[10px]">
                         <div class="flex justify-between mb-1">
@@ -3305,7 +3341,7 @@
 
         async function saveTargetPct() {
             const val = parseInt(document.getElementById('targetPct').value) || 75;
-            data.targetPct = Math.max(50, Math.min(100, val));
+            data.targetPct = clampTargetPct(val);
             document.getElementById('targetPct').value = data.targetPct;
             showLoading('Saving...');
             await saveData();
