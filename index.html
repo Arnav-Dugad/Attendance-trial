@@ -1336,6 +1336,11 @@
             bulkSet.clear();
             dirty = false;
             curMonth = new Date();
+            tempSubjectRows = clone(data.subjectMeta || []);
+            tempSchedule = clone(data.schedule || {});
+            tempScheduleTimes = clone(data.scheduleTimes || {});
+            const subjectModal = document.getElementById('modalSubjects');
+            if (subjectModal) subjectModal.classList.add('hidden');
         }
 
         // =====================================================================
@@ -1653,6 +1658,9 @@
             if (typeof data.autoFillMissedEnabled !== 'boolean') data.autoFillMissedEnabled = fresh.autoFillMissedEnabled;
             data.autoFillWindowDays = [30, 90, 180, 365].includes(parseInt(data.autoFillWindowDays, 10)) ? parseInt(data.autoFillWindowDays, 10) : 90;
             syncSubjectConfig();
+            tempSubjectRows = clone(data.subjectMeta || []);
+            tempSchedule = clone(data.schedule || {});
+            tempScheduleTimes = clone(data.scheduleTimes || {});
             const logs = await db.collection('att_users').doc(user.uid).collection('logs').get();
             data.logs = {}; logs.forEach(d => data.logs[d.id] = d.data());
             const backfilled = await autoFillMissedDays();
@@ -4208,6 +4216,11 @@
 
                 saveSnapshotHistory([]);
                 syncSubjectConfig();
+                tempSubjectRows = clone(data.subjectMeta || []);
+                tempSchedule = clone(data.schedule || {});
+                tempScheduleTimes = clone(data.scheduleTimes || {});
+                const subjectModal = document.getElementById('modalSubjects');
+                if (subjectModal) subjectModal.classList.add('hidden');
                 await saveData();
                 selectDay(today());
                 render();
